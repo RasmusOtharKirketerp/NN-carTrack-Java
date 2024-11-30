@@ -1,3 +1,5 @@
+package com.nncartrack;
+
 import java.util.*;
 
 public class NeuralNetwork {
@@ -12,6 +14,10 @@ public class NeuralNetwork {
     private List<Experience> replayMemory;
     private Random rand = new Random();
     private double epsilon;
+    
+    // Add new fields for metrics
+    private double currentLoss = 0;
+    private double maxQValue = 0;
     
     private static class Experience {
         double[] state;
@@ -32,7 +38,7 @@ public class NeuralNetwork {
     public NeuralNetwork() {
         weightsInputHidden = new double[inputSize][hiddenSize];
         weightsHiddenOutput = new double[hiddenSize][outputSize];
-        replayMemory = new ArrayList<>();
+        replayMemory = new ArrayList<>(Config.MEMORY_SIZE); // Initialize with capacity
         epsilon = Config.EPSILON_START;
         
         initializeWeights();
@@ -206,24 +212,54 @@ public class NeuralNetwork {
 
     public void trainWithReward(double[] state, double reward) {
         double[] outputs = forward(state);
-        double[] targetOutputs = outputs.clone();
+        maxQValue = max(outputs);  // Track max Q-value
+        double[] targetOutputs;  // Declare outside if-else blocks
         
-        // Modify target outputs based on reward
-        for (int i = 0; i < outputSize; i++) {
-            if (reward > 0) {
-                // For positive rewards, reinforce the current output
-                targetOutputs[i] = outputs[i] + (reward * learningRate * (1 - outputs[i]));
-            } else {
-                // For negative rewards, push output in opposite direction
-                targetOutputs[i] = outputs[i] + (reward * learningRate * outputs[i]);
+        // Force exploration based on epsilon
+        if (rand.nextDouble() < epsilon) {
+            // Generate random outputs during exploration
+            targetOutputs = new double[outputSize];
+            for (int i = 0; i < outputSize; i++) {
+                targetOutputs[i] = rand.nextDouble();
             }
-            // Ensure outputs stay in [0,1] range
-            targetOutputs[i] = Math.max(0, Math.min(1, targetOutputs[i]));
+        } else {
+            // Existing reward-based training
+            targetOutputs = outputs.clone();
+            
+            // Modify target outputs based on reward
+            for (int i = 0; i < outputSize; i++) {
+                if (reward > 0) {
+                    targetOutputs[i] = outputs[i] + (reward * learningRate * (1 - outputs[i]));
+                } else {
+                    targetOutputs[i] = outputs[i] + (reward * learningRate * outputs[i]);
+                }
+                // Ensure outputs stay in [0,1] range
+                targetOutputs[i] = Math.max(0, Math.min(1, targetOutputs[i]));
+            }
         }
         
-        // Update weights using backpropagation
         backpropagate(state, targetOutputs);
+        
+        // Track loss
+        currentLoss = calculateLoss(outputs, targetOutputs);
+        
+        // Decay epsilon
+        if (rand.nextDouble() < 0.001) {
+            epsilon = Math.max(Config.EPSILON_MIN, epsilon * Config.EPSILON_DECAY);
+        }
     }
+
+    private double calculateLoss(double[] outputs, double[] targets) {
+        double loss = 0;
+        for (int i = 0; i < outputs.length; i++) {
+            loss += Math.pow(targets[i] - outputs[i], 2);
+        }
+        return loss / outputs.length;
+    }
+    
+    // Add getters for metrics
+    public double getCurrentLoss() { return currentLoss; }
+    public double getMaxQValue() { return maxQValue; }
     
     public double getEpsilon() {
         return epsilon;

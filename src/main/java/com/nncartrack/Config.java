@@ -1,3 +1,5 @@
+package com.nncartrack;
+
 public class Config {
     // Track parameters
     public static final double TRACK_MARGIN = 40.0;  // Margin around track
@@ -13,7 +15,7 @@ public class Config {
     public static final double STARTING_Y = TRACK_HEIGHT / 2 + TRACK_MARGIN;
 
     public static final int NUMBER_OF_CARS = 100;  // Can increase since they overlap
-    public static final int NUMBER_OF_EPISODES = 10;  // Fixed from 0
+    public static final int NUMBER_OF_EPISODES = 100;  // Increased for better learning
 
     // Rewards
     public static final double FINISH_REWARD = 50.0;
@@ -28,8 +30,10 @@ public class Config {
     // DQN Parameters
     public static final double GAMMA = 0.99;  // Discount factor
     public static final double EPSILON_START = 1.0;
-    public static final double EPSILON_MIN = 0.1;
-    public static final double EPSILON_DECAY = 0.995;
+    public static final double EPSILON_MIN = 0.01;  // Lower minimum
+    // Adjusted decay for smoother transition
+    public static final double EPSILON_DECAY = 0.95;  // Fixed decay rate instead of calculated
+    public static final int STEPS_PER_EPISODE = 1000; // New constant
     public static final int MEMORY_SIZE = 10000;
     public static final int BATCH_SIZE = 32;
 }

@@ -1,3 +1,5 @@
+package com.nncartrack;
+
 import java.awt.Color;
 import java.awt.Graphics;
 import java.util.Random;
@@ -7,7 +9,7 @@ public class Car {
     private double x, y;
     private double speed;
     private double angle;
-    private double turn; // Declare turn as a field
+    private double turn = 0.0; // Initialize turn field
 
     // Remove unused history tracking
     // private static final int HISTORY_SIZE = 20;
@@ -168,7 +170,7 @@ public class Car {
             hasFinished = true;
             isOutOfBoundsState = true;
             speed = 0;
-            System.out.println("Car reached finish line! Final reward: " + reward);
+            //System.out.println("Car reached finish line! Final reward: " + reward);
         }
 
         if (obstacleDistance < 20) {
