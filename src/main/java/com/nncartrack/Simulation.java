@@ -6,7 +6,6 @@ import java.util.ArrayList;
 
 public class Simulation extends JPanel {  // Remove Scrollable interface
     private ArrayList<Car> cars;
-    private Obstacle obstacle;
     private int episode = 0;
     private int carsFinished = 0;
     private LiveDataWindow liveData;
@@ -21,7 +20,6 @@ public class Simulation extends JPanel {  // Remove Scrollable interface
         for (int i = 0; i < Config.NUMBER_OF_CARS; i++) {
             cars.add(new Car(Config.STARTING_X, Config.STARTING_Y, i));
         }
-        obstacle = new Obstacle(Config.WINDOW_WIDTH / 2, Config.WINDOW_HEIGHT / 2);
         liveData = new LiveDataWindow();
         liveData.setVisible(true);  // Explicitly make LiveDataWindow visible
     }
@@ -41,8 +39,7 @@ public class Simulation extends JPanel {  // Remove Scrollable interface
             for (int i = 0; i < cars.size(); i++) {
                 Car car = cars.get(i);
                 if (!car.hasFinished()) {
-                    double distance = car.senseObstacle(obstacle);
-                    car.update(distance);
+                    car.update(0); // Pass 0 as obstacle distance
 
 
                     if (car.hasFinished()) {
@@ -128,12 +125,26 @@ public class Simulation extends JPanel {  // Remove Scrollable interface
         g.setColor(Color.LIGHT_GRAY);
         g.fillRect(0, 0, getWidth(), getHeight());
     
+        // Draw road (same as track)
+        g.setColor(Color.DARK_GRAY);
+        int roadX = (int) Config.TRACK_MARGIN;
+        int roadY = (int) Config.TRACK_MARGIN;
+        int roadWidth = Config.TRACK_WIDTH;
+        int roadHeight = Config.TRACK_HEIGHT;
+        g.fillRect(roadX, roadY, roadWidth, roadHeight);
+
+        // Draw white stripes on the road
+        g.setColor(Color.WHITE);
+        int stripeWidth = 20;
+        int stripeHeight = 10;
+        int stripeSpacing = 40;
+        for (int x = roadX; x < roadX + roadWidth; x += stripeWidth + stripeSpacing) {
+            g.fillRect(x, roadY + (roadHeight - stripeHeight) / 2, stripeWidth, stripeHeight);
+        }
+        
         // Draw track boundaries
         g.setColor(Color.DARK_GRAY);
-        g.drawRect((int) Car.getMinX(), (int) Car.getMinY(), (int) (Car.getMaxX() - Car.getMinX()), (int) (Car.getMaxY() - Car.getMinY()));
-    
-        // Draw obstacle
-        obstacle.draw(g);
+        g.drawRect(roadX, roadY, roadWidth, roadHeight);
     
         // Draw cars
         for (Car car : cars) {

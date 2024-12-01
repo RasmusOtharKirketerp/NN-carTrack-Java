@@ -4,7 +4,7 @@ public class Config {
     // Track parameters
     public static final double TRACK_MARGIN = 40.0;  // Margin around track
     public static final int TRACK_WIDTH = 800;       // Track size
-    public static final int TRACK_HEIGHT = 600;      // Track size
+    public static final int TRACK_HEIGHT = 300;      // Track size
     
     // Window size includes margins
     public static final int WINDOW_WIDTH = TRACK_WIDTH + (int)(TRACK_MARGIN * 2);
@@ -62,12 +62,6 @@ public class Config {
     public static final double ACC_MODIFIER = 2;  // Multiplier for speed increase
     public static final double STEP_PENALTY = 0.1;
     
-    // Obstacle Parameters
-    public static final double OBSTACLE_SIZE = 120;  // Width/Height of obstacle
-    public static final double COLLISION_DISTANCE = 15;
-    public static final double OBSTACLE_CLOSE_DISTANCE = 10;
-    public static final double OBSTACLE_NEAR_DISTANCE = 30;
-
     // Visualization Parameters
     public static final int LIVE_DATA_WINDOW_WIDTH = 800;
     public static final int LIVE_DATA_WINDOW_HEIGHT = 600;

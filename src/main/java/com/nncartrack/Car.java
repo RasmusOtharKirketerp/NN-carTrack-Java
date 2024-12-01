@@ -11,9 +11,6 @@ public class Car {
     private int lastAction = -1;
     private int actionCount = 0;
 
-    // Sensor range
-    private double sensorRange = Config.SENSOR_RANGE;
-
     // Neural network brain
     private NeuralNetwork brain;
 
@@ -35,7 +32,6 @@ public class Car {
 
     // Add new fields at the top
     private double lastX, lastY;
-    private static final double MIN_MOVEMENT_THRESHOLD = 0.5;
 
     // Add new field for car index
     private int carIndex;
@@ -59,10 +55,8 @@ public class Car {
         // Normalize inputs
         double normalizedX = (x - MIN_X) / (MAX_X - MIN_X);
         double normalizedY = (y - MIN_Y) / (MAX_Y - MIN_Y);
-        double normalizedDistance = obstacleDistance / sensorRange;
-
-        // Inputs: [Obstacle Distance, X Position, Y Position]
-        double[] inputs = { normalizedDistance, normalizedX, normalizedY };
+        // Remove obstacle distance normalization
+        double[] inputs = { 0, normalizedX, normalizedY }; // Pass 0 as obstacle distance
         
         // Use selectAction to get the actual action taken
         int action = brain.selectAction(inputs);
@@ -94,33 +88,25 @@ public class Car {
             speed = 0;
             double penalty = Config.OUT_OF_BOUNDS_PENALTY;
             totalReward += penalty;
-            double[] nextState = { normalizedDistance, normalizedX, normalizedY };
+            double[] nextState = { 0, normalizedX, normalizedY }; // Pass 0 as obstacle distance
             brain.trainWithReward(inputs, penalty, nextState, true);
             return;
         }
 
         // Calculate reward
-        double reward = calculateReward(obstacleDistance);
+        double reward = calculateReward();
         totalReward += reward;
 
         // Prepare nextState and done flag
-        double[] nextState = { normalizedDistance, normalizedX, normalizedY };
+        double[] nextState = { 0, normalizedX, normalizedY }; // Pass 0 as obstacle distance
         boolean done = isOutOfBoundsState || hasFinished;
         
         // Add experience to shared replay memory and train
         brain.trainWithReward(inputs, reward, nextState, done);
     }
 
-    // Simulate sensor (distance to obstacle)
-    public double senseObstacle(Obstacle obstacle) {
-        double dx = obstacle.getX() - x;
-        double dy = obstacle.getY() - y;
-        double distance = Math.sqrt(dx * dx + dy * dy);
-        return distance < sensorRange ? distance : sensorRange;
-    }
-
     // Calculate the reward based on the car's state
-    private double calculateReward(double obstacleDistance) {
+    private double calculateReward() {
         double reward = 0;
 
         // Penalty for using many steps
@@ -158,24 +144,11 @@ public class Car {
             speed = 0;
         }
 
-        if (obstacleDistance < Config.OBSTACLE_CLOSE_DISTANCE) {
-            reward += Config.OBSTACLE_CLOSE_PENALTY;
-        } else if (obstacleDistance < Config.OBSTACLE_NEAR_DISTANCE) {
-            reward += Config.OBSTACLE_NEAR_PENALTY;
-        }
-
         return reward;
     }
 
     // Render the car
     public void draw(Graphics g, ArrayList<Car> cars) {
-        // Set color based on finish state or out of bounds
-        g.setColor((hasFinished || isOutOfBoundsState) ? Color.RED : Color.BLUE);
-        g.fillOval((int) x - (int)(Config.CAR_SIZE/2), 
-                   (int) y - (int)(Config.CAR_SIZE/2), 
-                   (int)Config.CAR_SIZE, 
-                   (int)Config.CAR_SIZE);
-
         // Determine the car with the highest and lowest score
         Car highestScoreCar = cars.get(0);
         Car lowestScoreCar = cars.get(0);
@@ -187,6 +160,17 @@ public class Car {
                 lowestScoreCar = car;
             }
         }
+
+        // Set color based on finish state or out of bounds
+        if (this == highestScoreCar || this == lowestScoreCar) {
+            g.setColor((hasFinished || isOutOfBoundsState) ? Color.RED : Color.BLUE);
+        } else {
+            g.setColor(new Color(100, 100, 100)); // Dim color for other cars
+        }
+        g.fillOval((int) x - (int)(Config.CAR_SIZE/2), 
+                   (int) y - (int)(Config.CAR_SIZE/2), 
+                   (int)Config.CAR_SIZE, 
+                   (int)Config.CAR_SIZE);
 
         // Draw car number and score only for the highest and lowest score cars
         if (this == highestScoreCar || this == lowestScoreCar) {
