@@ -6,6 +6,7 @@ import org.jfree.chart.*;
 import org.jfree.chart.plot.*;
 import org.jfree.data.xy.*;
 import org.jfree.chart.renderer.xy.XYLineAndShapeRenderer;
+import org.jfree.chart.axis.NumberAxis;
 
 public class LiveDataWindow extends JFrame {
     private JLabel episodeLabel;
@@ -26,33 +27,46 @@ public class LiveDataWindow extends JFrame {
         qMaxSeries = new XYSeries("Q-Max");
         epsilonSeries = new XYSeries("Epsilon");
         
-        // Create datasets
-        XYSeriesCollection dataset = new XYSeriesCollection();
-        dataset.addSeries(rewardSeries);
-        dataset.addSeries(lossSeries);
-        dataset.addSeries(qMaxSeries);
-        dataset.addSeries(epsilonSeries);
+        // Create separate datasets for different value ranges
+        XYSeriesCollection dataset1 = new XYSeriesCollection();
+        dataset1.addSeries(rewardSeries);
+        dataset1.addSeries(lossSeries);
         
-        // Create chart
+        XYSeriesCollection dataset2 = new XYSeriesCollection();
+        dataset2.addSeries(qMaxSeries);
+        dataset2.addSeries(epsilonSeries);
+        
+        // Create chart with primary dataset
         JFreeChart chart = ChartFactory.createXYLineChart(
             "Training Metrics",
             "Episode",
             "Value",
-            dataset,
+            dataset1,
             PlotOrientation.VERTICAL,
             true,
             true,
             false
         );
         
-        // Customize renderer
+        // Get the plot and create second axis
         XYPlot plot = chart.getXYPlot();
-        XYLineAndShapeRenderer renderer = new XYLineAndShapeRenderer();
-        renderer.setSeriesPaint(0, Color.BLUE);    // Reward
-        renderer.setSeriesPaint(1, Color.RED);     // Loss
-        renderer.setSeriesPaint(2, Color.GREEN);   // Q-Max
-        renderer.setSeriesPaint(3, Color.ORANGE);  // Epsilon
-        plot.setRenderer(renderer);
+        NumberAxis axis2 = new NumberAxis("Normalized Value (0-1)");
+        axis2.setRange(0.0, 1.0);
+        plot.setRangeAxis(1, axis2);
+        plot.setDataset(1, dataset2);
+        plot.mapDatasetToRangeAxis(1, 1);
+        
+        // Create and customize renderers
+        XYLineAndShapeRenderer renderer1 = new XYLineAndShapeRenderer();
+        renderer1.setSeriesPaint(0, Color.BLUE);    // Reward
+        renderer1.setSeriesPaint(1, Color.RED);     // Loss
+        
+        XYLineAndShapeRenderer renderer2 = new XYLineAndShapeRenderer();
+        renderer2.setSeriesPaint(0, Color.GREEN);   // Q-Max
+        renderer2.setSeriesPaint(1, Color.ORANGE);  // Epsilon
+        
+        plot.setRenderer(0, renderer1);
+        plot.setRenderer(1, renderer2);
         
         // Add chart to window
         ChartPanel chartPanel = new ChartPanel(chart);

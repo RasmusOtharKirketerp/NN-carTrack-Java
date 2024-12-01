@@ -57,7 +57,7 @@ public class Simulation extends JPanel {  // Remove Scrollable interface
             }
             repaint();
             // Reduce sleep time from 16ms to 8ms (or remove if you want max speed)
-            try { Thread.sleep(1); } catch (InterruptedException e) {}
+            try { Thread.sleep(12); } catch (InterruptedException e) {}
         }
 
         // Print neural network stats BEFORE resetting cars
