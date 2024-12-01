@@ -7,6 +7,10 @@ import org.jfree.chart.plot.*;
 import org.jfree.data.xy.*;
 import org.jfree.chart.renderer.xy.XYLineAndShapeRenderer;
 import org.jfree.chart.axis.NumberAxis;
+import java.util.Queue;
+import java.util.concurrent.ConcurrentLinkedQueue;
+import java.awt.event.WindowAdapter;
+import java.awt.event.WindowEvent;
 
 public class LiveDataWindow extends JFrame {
     private JLabel episodeLabel;
@@ -14,11 +18,31 @@ public class LiveDataWindow extends JFrame {
     private XYSeries lossSeries;
     private XYSeries qMaxSeries;
     private XYSeries epsilonSeries;
-    private static final int MAX_DATA_POINTS = 100;
+    private static final int MAX_DATA_POINTS = Config.MAX_DATA_POINTS;
+    private final Queue<DataUpdate> updateQueue;
+    private volatile boolean running;
+    private Thread updateThread;
+
+    // Data class to hold updates
+    private static class DataUpdate {
+        final int episode;
+        final double epsilon;
+        final double qMax;
+        final double loss;
+        final double avgScore;
+
+        DataUpdate(int episode, double epsilon, double qMax, double loss, double avgScore) {
+            this.episode = episode;
+            this.epsilon = epsilon;
+            this.qMax = qMax;
+            this.loss = loss;
+            this.avgScore = avgScore;
+        }
+    }
     
     public LiveDataWindow() {
         setTitle("DQN Live Data");
-        setSize(800, 600);
+        setSize(Config.LIVE_DATA_WINDOW_WIDTH, Config.LIVE_DATA_WINDOW_HEIGHT);
         setLayout(new BorderLayout());
         
         // Create data series
@@ -79,23 +103,56 @@ public class LiveDataWindow extends JFrame {
         setLocationRelativeTo(null);
         setDefaultCloseOperation(JFrame.DISPOSE_ON_CLOSE);
         setVisible(true);
+
+        updateQueue = new ConcurrentLinkedQueue<>();
+        running = true;
+        
+        // Start update thread
+        updateThread = new Thread(this::processUpdates);
+        updateThread.setDaemon(true);
+        updateThread.start();
+
+        // Add window listener to clean up thread
+        addWindowListener(new WindowAdapter() {
+            @Override
+            public void windowClosing(WindowEvent e) {
+                running = false;
+                updateThread.interrupt();
+            }
+        });
+    }
+
+    private void processUpdates() {
+        while (running) {
+            DataUpdate update = updateQueue.poll();
+            if (update != null) {
+                SwingUtilities.invokeLater(() -> {
+                    episodeLabel.setText(String.format("Episode: %d", update.episode));
+                    
+                    rewardSeries.add(update.episode, update.avgScore);
+                    lossSeries.add(update.episode, update.loss);
+                    qMaxSeries.add(update.episode, update.qMax);
+                    epsilonSeries.add(update.episode, update.epsilon);
+                    
+                    // Remove old points if needed
+                    if (rewardSeries.getItemCount() > MAX_DATA_POINTS) {
+                        rewardSeries.remove(0);
+                        lossSeries.remove(0);
+                        qMaxSeries.remove(0);
+                        epsilonSeries.remove(0);
+                    }
+                });
+            }
+            try {
+                Thread.sleep(Config.UI_UPDATE_INTERVAL_MS); // Use the configured update interval
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+                break;
+            }
+        }
     }
     
     public void updateData(int episode, double epsilon, double qMax, double loss, double avgScore) {
-        episodeLabel.setText(String.format("Episode: %d", episode));
-        
-        // Add new data points
-        rewardSeries.add(episode, avgScore);
-        lossSeries.add(episode, loss);
-        qMaxSeries.add(episode, qMax);
-        epsilonSeries.add(episode, epsilon);
-        
-        // Remove old points if needed
-        if (rewardSeries.getItemCount() > MAX_DATA_POINTS) {
-            rewardSeries.remove(0);
-            lossSeries.remove(0);
-            qMaxSeries.remove(0);
-            epsilonSeries.remove(0);
-        }
+        updateQueue.offer(new DataUpdate(episode, epsilon, qMax, loss, avgScore));
     }
 }

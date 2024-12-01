@@ -37,17 +37,13 @@ public class Simulation extends JPanel {  // Remove Scrollable interface
             car.setTotalReward(0);
         }
         
-        for (int t = 0; t < 1000 && carsFinished < cars.size(); t++) {
+        for (int t = 0; t < Config.STEPS_PER_EPISODE && carsFinished < cars.size(); t++) {
             for (int i = 0; i < cars.size(); i++) {
                 Car car = cars.get(i);
                 if (!car.hasFinished()) {
                     double distance = car.senseObstacle(obstacle);
                     car.update(distance);
 
-                    // Simplified collision reset
-                    if (distance < 15) {
-                        car.reset(Config.STARTING_X, Config.STARTING_Y);
-                    }
 
                     if (car.hasFinished()) {
                         carsFinished++;
@@ -56,23 +52,11 @@ public class Simulation extends JPanel {  // Remove Scrollable interface
                 }
             }
             repaint();
-            // Reduce sleep time from 16ms to 8ms (or remove if you want max speed)
-            try { Thread.sleep(12); } catch (InterruptedException e) {}
+            try { 
+                Thread.sleep(Config.SIMULATION_SLEEP_MS); 
+            } catch (InterruptedException e) {}
         }
 
-        // Print neural network stats BEFORE resetting cars
-        //System.out.println("Episode: " + episode);
-        //System.out.println("Cars finished: " + carsFinished);
-        //for (int i = 0; i < cars.size(); i++) {
-        //    System.out.println("Car " + i + " Total Reward: " + cars.get(i).getTotalReward());
-        // }
-
-        // Enhanced logging at episode end
-        //double episodeTime = (System.currentTimeMillis() - episodeStartTime) / 1000.0;
-        //System.out.println("\n=== Episode " + episode + " Statistics ===");
-        //System.out.println("Time: " + String.format("%.2f", episodeTime) + "s");
-        //System.out.println("Cars completed: " + carsFinished + "/" + cars.size());
-        
         // Calculate and display episode statistics
         double totalReward = 0;
         double bestReward = Double.NEGATIVE_INFINITY;
@@ -121,6 +105,11 @@ public class Simulation extends JPanel {  // Remove Scrollable interface
             cars.get(0).getBrain().getCurrentLoss(),
             avgRecentScore
         );
+        
+        // After episode ends, call onEpisodeEnd for each car's brain
+        for (Car car : cars) {
+            car.getBrain().onEpisodeEnd();
+        }
         
         // Reset all cars to same starting position
         for (int i = 0; i < cars.size(); i++) {

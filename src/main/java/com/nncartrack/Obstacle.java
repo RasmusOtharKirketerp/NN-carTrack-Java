@@ -14,7 +14,8 @@ public class Obstacle {
     // Render the obstacle
     public void draw(Graphics g) {
         g.setColor(Color.RED);
-        g.fillRect((int) x - 10, (int) y - 10, 20, 20);
+        int size = (int)Config.OBSTACLE_SIZE;
+        g.fillRect((int) x - size/2, (int) y - size/2, size, size);
     }
 
     // Getters

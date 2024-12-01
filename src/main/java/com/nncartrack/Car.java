@@ -2,28 +2,19 @@ package com.nncartrack;
 
 import java.awt.Color;
 import java.awt.Graphics;
-import java.util.Random;
 
 public class Car {
     // Car properties
     private double x, y;
     private double speed;
-    private double angle;
-    private double turn = 0.0; // Initialize turn field
-
-    // Remove unused history tracking
-    // private static final int HISTORY_SIZE = 20;
-    // private double[] positionHistoryX = new double[HISTORY_SIZE];
-    private static final double TURN_SENSITIVITY = 2.0;
-    // private int historyIndex = 0;
+    private int lastAction = -1;
+    private int actionCount = 0;
 
     // Sensor range
-    private double sensorRange = 150;
+    private double sensorRange = Config.SENSOR_RANGE;
 
+    // Neural network brain
     private NeuralNetwork brain;
-
-    // Random instance
-    private static Random rand = new Random();
 
     // Total reward
     private double totalReward = 0;
@@ -53,11 +44,8 @@ public class Car {
         this.x = x;
         this.y = y;
         this.carIndex = index;
-        // Randomize initial angle between 0 and 360 degrees
-        this.angle = rand.nextDouble() * 360;
-        // Randomize initial speed between 0 and 2 units
-        this.speed = rand.nextDouble() * 2;
-        brain = new NeuralNetwork();
+        this.speed = Config.INITIAL_SPEED;
+        brain = new NeuralNetwork();  // Create new brain instead of using shared
     }
 
     // Update the car's position based on neural network's output
@@ -67,65 +55,59 @@ public class Car {
             return;
         }
 
-        // Remove history tracking
-        // positionHistoryX[historyIndex] = x;
-        // historyIndex = (historyIndex + 1) % HISTORY_SIZE;
-
         // Normalize inputs
-        double normalizedSpeed = speed / 10.0;
-        double normalizedAngle = angle / 360.0;
-        double normalizedDistance = obstacleDistance / sensorRange;
         double normalizedX = (x - MIN_X) / (MAX_X - MIN_X);
         double normalizedY = (y - MIN_Y) / (MAX_Y - MIN_Y);
+        double normalizedDistance = obstacleDistance / sensorRange;
 
-        // Inputs: [Speed, Angle, Obstacle Distance, X Position, Y Position]
-        double[] inputs = { normalizedSpeed, normalizedAngle, normalizedDistance, normalizedX, normalizedY };
-        double[] outputs = brain.forward(inputs);
+        // Inputs: [Obstacle Distance, X Position, Y Position]
+        double[] inputs = { normalizedDistance, normalizedX, normalizedY };
+        
+        // Use selectAction to get the actual action taken
+        int action = brain.selectAction(inputs);
 
-        // Outputs: [Acceleration, Turn]
-        double acceleration = outputs[0] * 2 - 1; // Range [-1, 1]
-        double turn = outputs[1] * 2 - 1;         // Range [-1, 1]
-
-        // Modify how turn and speed are applied
-        speed += acceleration * 0.1; // Reduced from 0.2
-        this.turn = turn;  // Add this line to use the class field
-        angle += this.turn * TURN_SENSITIVITY;
-
-        // Limit speed
-        if (speed < 0) speed = 0;
-        if (speed > 10) speed = 10;
-
-        // Keep angle between 0 and 360 degrees
-        angle = angle % 360;
-        if (angle < 0) {
-            angle += 360;
+        // Adjust speed based on repeated actions
+        if (action == lastAction) {
+            actionCount++;
+            if (actionCount >= Config.TIMES_ACC) {
+                speed = Math.min(speed * Config.ACC_MODIFIER, Config.MAX_SPEED);
+            }
+        } else {
+            actionCount = 0;
+            speed *= 0.95;  // Reduce speed by 5%
+            speed = Math.max(speed, Config.INITIAL_SPEED);  // Ensure speed doesn't drop below initial speed
         }
+        lastAction = action;
 
-        // Update position
-        double newX = x + Math.cos(Math.toRadians(angle)) * speed;
-        double newY = y + Math.sin(Math.toRadians(angle)) * speed;
+        // Move the car based on the selected action
+        switch (action) {
+            case 0: y -= speed; break; // Up
+            case 1: y += speed; break; // Down
+            case 2: x -= speed; break; // Left
+            case 3: x += speed; break; // Right
+        }
 
         // Check boundaries before updating position
-        if (newX < MIN_X || newX > MAX_X || newY < MIN_Y || newY > MAX_Y) {
+        if (x < MIN_X || x > MAX_X || y < MIN_Y || y > MAX_Y) {
             isOutOfBoundsState = true;
             speed = 0;
-            // Apply heavy penalty
-            double penalty = -10.0;
+            double penalty = Config.OUT_OF_BOUNDS_PENALTY;
             totalReward += penalty;
-            brain.trainWithReward(inputs, penalty);
+            double[] nextState = { normalizedDistance, normalizedX, normalizedY };
+            brain.trainWithReward(inputs, penalty, nextState, true);
             return;
         }
-
-        // Update position only if within bounds
-        x = newX;
-        y = newY;
 
         // Calculate reward
         double reward = calculateReward(obstacleDistance);
         totalReward += reward;
 
-        // Train the neural network using the reward
-        brain.trainWithReward(inputs, reward);
+        // Prepare nextState and done flag
+        double[] nextState = { normalizedDistance, normalizedX, normalizedY };
+        boolean done = isOutOfBoundsState || hasFinished;
+        
+        // Add experience to shared replay memory and train
+        brain.trainWithReward(inputs, reward, nextState, done);
     }
 
     // Simulate sensor (distance to obstacle)
@@ -134,11 +116,6 @@ public class Car {
         double dy = obstacle.getY() - y;
         double distance = Math.sqrt(dx * dx + dy * dy);
         return distance < sensorRange ? distance : sensorRange;
-    }
-
-    // Check if the car is out-of-bounds
-    private boolean isOutOfBounds() {
-        return x < MIN_X || x > MAX_X || y < MIN_Y || y > MAX_Y;
     }
 
     // Calculate the reward based on the car's state
@@ -170,21 +147,12 @@ public class Car {
             hasFinished = true;
             isOutOfBoundsState = true;
             speed = 0;
-            //System.out.println("Car reached finish line! Final reward: " + reward);
         }
 
-        if (obstacleDistance < 20) {
+        if (obstacleDistance < Config.OBSTACLE_CLOSE_DISTANCE) {
             reward += Config.OBSTACLE_CLOSE_PENALTY;
-        } else if (obstacleDistance < 50) {
+        } else if (obstacleDistance < Config.OBSTACLE_NEAR_DISTANCE) {
             reward += Config.OBSTACLE_NEAR_PENALTY;
-        }
-
-        if (Math.abs(turn) > 0.8) {
-            reward += Config.SHARP_TURN_PENALTY;
-        }
-
-        if (isOutOfBounds()) {
-            reward += Config.OUT_OF_BOUNDS_PENALTY;
         }
 
         return reward;
@@ -194,12 +162,10 @@ public class Car {
     public void draw(Graphics g) {
         // Set color based on finish state or out of bounds
         g.setColor((hasFinished || isOutOfBoundsState) ? Color.RED : Color.BLUE);
-        g.fillOval((int) x - 5, (int) y - 5, 10, 10);
-
-        // Draw direction line
-        int lineX = (int) (x + Math.cos(Math.toRadians(angle)) * 20);
-        int lineY = (int) (y + Math.sin(Math.toRadians(angle)) * 20);
-        g.drawLine((int) x, (int) y, lineX, lineY);
+        g.fillOval((int) x - (int)(Config.CAR_SIZE/2), 
+                   (int) y - (int)(Config.CAR_SIZE/2), 
+                   (int)Config.CAR_SIZE, 
+                   (int)Config.CAR_SIZE);
 
         // Draw car number
         g.setColor(Color.BLACK);
@@ -229,16 +195,15 @@ public class Car {
     public void reset(double startX, double startY) {
         x = startX;
         y = startY;
-        speed = rand.nextDouble() * 2;
-        angle = rand.nextDouble() * 360;
+        speed = Config.INITIAL_SPEED;
         isOutOfBoundsState = false;
-        // Remove unused historyIndex reset
-        // historyIndex = 0;
         this.startX = startX;
         hasFinished = false;
         totalReward = 0; // Make sure reward is reset properly
         lastX = startX;
         lastY = startY;
+        lastAction = -1;
+        actionCount = 0;
     }
 
     public boolean hasFinished() {

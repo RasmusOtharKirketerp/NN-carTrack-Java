@@ -3,15 +3,15 @@ package com.nncartrack;
 import java.util.*;
 
 public class NeuralNetwork {
-    private int inputSize = 5;
-    private int hiddenSize = 24;  // Increased for more capacity
-    private int outputSize = 2;
-    private double learningRate = 0.001;
+    private int inputSize = Config.INPUT_SIZE;
+    private int hiddenSize = Config.HIDDEN_SIZE;
+    private int outputSize = Config.OUTPUT_SIZE;
+    private double learningRate = Config.LEARNING_RATE;
     
     private double[][] weightsInputHidden;
     private double[][] weightsHiddenOutput;
     
-    private List<Experience> replayMemory;
+    private PrioritizedReplayMemory memory;
     private Random rand = new Random();
     private double epsilon;
     
@@ -19,26 +19,10 @@ public class NeuralNetwork {
     private double currentLoss = 0;
     private double maxQValue = 0;
     
-    private static class Experience {
-        double[] state;
-        int action;
-        double reward;
-        double[] nextState;
-        boolean done;
-        
-        Experience(double[] state, int action, double reward, double[] nextState, boolean done) {
-            this.state = state.clone();
-            this.action = action;
-            this.reward = reward;
-            this.nextState = nextState.clone();
-            this.done = done;
-        }
-    }
-    
     public NeuralNetwork() {
         weightsInputHidden = new double[inputSize][hiddenSize];
         weightsHiddenOutput = new double[hiddenSize][outputSize];
-        replayMemory = new ArrayList<>(Config.MEMORY_SIZE); // Initialize with capacity
+        memory = PrioritizedReplayMemory.getInstance();
         epsilon = Config.EPSILON_START;
         
         initializeWeights();
@@ -47,11 +31,13 @@ public class NeuralNetwork {
     private void initializeWeights() {
         for (int i = 0; i < inputSize; i++)
             for (int j = 0; j < hiddenSize; j++)
-                weightsInputHidden[i][j] = rand.nextGaussian() * Math.sqrt(2.0 / inputSize);
+                weightsInputHidden[i][j] = rand.nextGaussian() * 
+                    Math.sqrt(Config.WEIGHT_INIT_STD / inputSize);
                 
         for (int i = 0; i < hiddenSize; i++)
             for (int j = 0; j < outputSize; j++)
-                weightsHiddenOutput[i][j] = rand.nextGaussian() * Math.sqrt(2.0 / hiddenSize);
+                weightsHiddenOutput[i][j] = rand.nextGaussian() * 
+                    Math.sqrt(Config.WEIGHT_INIT_STD / hiddenSize);
     }
     
     public int selectAction(double[] state) {
@@ -62,20 +48,39 @@ public class NeuralNetwork {
         return maxIndex(qValues);
     }
     
-    public void addExperience(double[] state, int action, double reward, double[] nextState, boolean done) {
-        if (replayMemory.size() >= Config.MEMORY_SIZE) {
-            replayMemory.remove(0);
-        }
-        replayMemory.add(new Experience(state, action, reward, nextState, done));
-    }
-    
     public void train() {
-        if (replayMemory.size() < Config.BATCH_SIZE) return;
+        if (memory.size() < Config.BATCH_SIZE) return;
         
-        // Sample random batch
-        List<Experience> batch = sampleBatch();
+        List<PrioritizedReplayMemory.Experience> batch = memory.sample(Config.BATCH_SIZE);
+        List<Integer> sampledIndices = memory.getSampledIndices();
+        List<Double> tdErrors = new ArrayList<>();
         
-        for (Experience exp : batch) {
+        // Get current beta for importance sampling
+        double beta = memory.getBeta();
+        
+        // Calculate importance sampling weights
+        double maxWeight = 0.0;
+        double[] weights = new double[batch.size()];
+        double sumPriorities = memory.getSumPriorities();
+        
+        for (int i = 0; i < batch.size(); i++) {
+            // Calculate importance sampling weight for this experience
+            double priority = memory.getPriority(sampledIndices.get(i));
+            double prob = priority / sumPriorities;
+            weights[i] = Math.pow(prob * batch.size(), -beta);
+            maxWeight = Math.max(maxWeight, weights[i]);
+        }
+        
+        // Normalize weights
+        for (int i = 0; i < weights.length; i++) {
+            weights[i] = weights[i] / maxWeight;
+        }
+        
+        double totalLoss = 0.0;
+        double maxQValue = Double.NEGATIVE_INFINITY;
+        
+        for (int i = 0; i < batch.size(); i++) {
+            PrioritizedReplayMemory.Experience exp = batch.get(i);
             double[] currentQ = forward(exp.state);
             double[] targetQ = currentQ.clone();
             
@@ -86,35 +91,46 @@ public class NeuralNetwork {
                 targetQ[exp.action] = exp.reward + Config.GAMMA * max(nextQ);
             }
             
+            double tdError = 0.0;
+            for (int j = 0; j < outputSize; j++) {
+                // Apply importance sampling weight to the error
+                tdError += weights[i] * Math.pow(targetQ[j] - currentQ[j], 2);
+                totalLoss += Math.pow(targetQ[j] - currentQ[j], 2);
+                maxQValue = Math.max(maxQValue, currentQ[j]);
+            }
+            tdError = Math.sqrt(tdError);
+            
+            tdErrors.add(tdError);
+            
+            // Apply importance sampling weight to the backpropagation
+            for (int j = 0; j < outputSize; j++) {
+                targetQ[j] = currentQ[j] + weights[i] * (targetQ[j] - currentQ[j]);
+            }
+            
             backpropagate(exp.state, targetQ);
         }
         
-        // Decay epsilon
-        epsilon = Math.max(Config.EPSILON_MIN, epsilon * Config.EPSILON_DECAY);
+        currentLoss = totalLoss / batch.size();
+        this.maxQValue = maxQValue;
+        
+        memory.updatePriorities(sampledIndices, tdErrors);
     }
     
     // Helper methods...
-    private List<Experience> sampleBatch() {
-        List<Experience> batch = new ArrayList<>();
-        for (int i = 0; i < Config.BATCH_SIZE; i++) {
-            int index = rand.nextInt(replayMemory.size());
-            batch.add(replayMemory.get(index));
-        }
-        return batch;
-    }
     
     private int maxIndex(double[] array) {
         int maxIndex = 0;
         for (int i = 1; i < array.length; i++) {
-            if (array[i] > array[maxIndex]) maxIndex = i;
+            if (array[i] > array[maxIndex]) maxIndex = i;  // Fix comparison
         }
         return maxIndex;
     }
     
+    // Fix the max method to return the maximum value
     private double max(double[] array) {
         double maxVal = array[0];
         for (int i = 1; i < array.length; i++) {
-            if (array[i] > maxVal) maxVal = array[i];
+            if (array[i] > maxVal) maxVal = array[i];  // Corrected from maxVal = i
         }
         return maxVal;
     }
@@ -210,53 +226,21 @@ public class NeuralNetwork {
         }
     }
 
-    public void trainWithReward(double[] state, double reward) {
-        double[] outputs = forward(state);
-        maxQValue = max(outputs);  // Track max Q-value
-        double[] targetOutputs;  // Declare outside if-else blocks
+    public void trainWithReward(double[] state, double reward, double[] nextState, boolean done) {
+        double priority = Math.abs(reward);
+        PrioritizedReplayMemory.Experience experience = new PrioritizedReplayMemory.Experience(
+            state, selectAction(state), reward, nextState, done);
+        memory.add(experience, priority);
         
-        // Force exploration based on epsilon
-        if (rand.nextDouble() < epsilon) {
-            // Generate random outputs during exploration
-            targetOutputs = new double[outputSize];
-            for (int i = 0; i < outputSize; i++) {
-                targetOutputs[i] = rand.nextDouble();
-            }
-        } else {
-            // Existing reward-based training
-            targetOutputs = outputs.clone();
-            
-            // Modify target outputs based on reward
-            for (int i = 0; i < outputSize; i++) {
-                if (reward > 0) {
-                    targetOutputs[i] = outputs[i] + (reward * learningRate * (1 - outputs[i]));
-                } else {
-                    targetOutputs[i] = outputs[i] + (reward * learningRate * outputs[i]);
-                }
-                // Ensure outputs stay in [0,1] range
-                targetOutputs[i] = Math.max(0, Math.min(1, targetOutputs[i]));
-            }
-        }
-        
-        backpropagate(state, targetOutputs);
-        
-        // Track loss
-        currentLoss = calculateLoss(outputs, targetOutputs);
-        
-        // Decay epsilon
-        if (rand.nextDouble() < 0.001) {
-            epsilon = Math.max(Config.EPSILON_MIN, epsilon * Config.EPSILON_DECAY);
-        }
+        train();
     }
 
-    private double calculateLoss(double[] outputs, double[] targets) {
-        double loss = 0;
-        for (int i = 0; i < outputs.length; i++) {
-            loss += Math.pow(targets[i] - outputs[i], 2);
-        }
-        return loss / outputs.length;
+    // Add new method for episode end
+    public void onEpisodeEnd() {
+        // Decay epsilon only once per episode
+        epsilon = Math.max(Config.EPSILON_MIN, epsilon * Config.EPSILON_DECAY);
     }
-    
+
     // Add getters for metrics
     public double getCurrentLoss() { return currentLoss; }
     public double getMaxQValue() { return maxQValue; }
