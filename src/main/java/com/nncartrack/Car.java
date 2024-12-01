@@ -2,6 +2,7 @@ package com.nncartrack;
 
 import java.awt.Color;
 import java.awt.Graphics;
+import java.util.ArrayList;
 
 public class Car {
     // Car properties
@@ -122,17 +123,25 @@ public class Car {
     private double calculateReward(double obstacleDistance) {
         double reward = 0;
 
+        // Penalty for using many steps
+        reward -= Config.STEP_PENALTY;
+
         // Calculate movement since last update
         double movementDelta = Math.sqrt(Math.pow(x - lastX, 2) + Math.pow(y - lastY, 2));
         
         // Penalize staying still or moving very little
-        if (movementDelta < MIN_MOVEMENT_THRESHOLD) {
+        if (movementDelta < Config.MIN_MOVEMENT_THRESHOLD) {
             reward += Config.STATIONARY_PENALTY;
         }
         
-        // Reward forward progress (movement towards finish line)
+        // Reward forward progress based on absolute position, but only if moving forward
         if (x > lastX) {
-            reward += (x - lastX) * Config.FORWARD_PROGRESS_REWARD;
+          reward += (x - startX) * Config.FORWARD_PROGRESS_REWARD;
+        }
+
+        // Penalize backward movement
+        if (x < lastX) {
+            reward -= (lastX - x) * Config.FORWARD_PROGRESS_REWARD * 0.5;
         }
         
         // Update last position
@@ -159,7 +168,7 @@ public class Car {
     }
 
     // Render the car
-    public void draw(Graphics g) {
+    public void draw(Graphics g, ArrayList<Car> cars) {
         // Set color based on finish state or out of bounds
         g.setColor((hasFinished || isOutOfBoundsState) ? Color.RED : Color.BLUE);
         g.fillOval((int) x - (int)(Config.CAR_SIZE/2), 
@@ -167,9 +176,23 @@ public class Car {
                    (int)Config.CAR_SIZE, 
                    (int)Config.CAR_SIZE);
 
-        // Draw car number
-        g.setColor(Color.BLACK);
-        g.drawString(String.valueOf(carIndex), (int) x - 3, (int) y - 7);
+        // Determine the car with the highest and lowest score
+        Car highestScoreCar = cars.get(0);
+        Car lowestScoreCar = cars.get(0);
+        for (Car car : cars) {
+            if (car.getTotalReward() > highestScoreCar.getTotalReward()) {
+                highestScoreCar = car;
+            }
+            if (car.getTotalReward() < lowestScoreCar.getTotalReward()) {
+                lowestScoreCar = car;
+            }
+        }
+
+        // Draw car number and score only for the highest and lowest score cars
+        if (this == highestScoreCar || this == lowestScoreCar) {
+            g.setColor(Color.BLACK);
+            g.drawString(String.format("Car %d: %.2f", carIndex, totalReward), (int) x - 20, (int) y - 10);
+        }
 
         // Draw finish line
         if (g != null) {

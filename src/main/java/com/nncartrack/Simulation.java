@@ -137,7 +137,7 @@ public class Simulation extends JPanel {  // Remove Scrollable interface
     
         // Draw cars
         for (Car car : cars) {
-            car.draw(g);
+            car.draw(g, cars);
         }
     }
     

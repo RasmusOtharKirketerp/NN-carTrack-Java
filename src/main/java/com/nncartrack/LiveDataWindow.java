@@ -144,7 +144,7 @@ public class LiveDataWindow extends JFrame {
                 });
             }
             try {
-                Thread.sleep(Config.UI_UPDATE_INTERVAL_MS); // Use the configured update interval
+                Thread.sleep(Config.UI_PAUSE_INTERVAL_MS); // Use the configured update interval
             } catch (InterruptedException e) {
                 Thread.currentThread().interrupt();
                 break;

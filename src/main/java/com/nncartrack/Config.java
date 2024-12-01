@@ -15,16 +15,17 @@ public class Config {
     public static final double STARTING_Y = TRACK_HEIGHT / 2 + TRACK_MARGIN;
 
     public static final int NUMBER_OF_CARS = 20;  // Can increase since they overlap
-    public static final int NUMBER_OF_EPISODES = 100;  // Increased for better learning
+    public static final int NUMBER_OF_EPISODES = 50;  // Increased for better learning
 
     // Rewards
-    public static final double FINISH_REWARD = 50.0;
+    public static final double FINISH_REWARD = 5000.0;
     public static final double PROGRESS_MULTIPLIER = 12.0;
     public static final double OUT_OF_BOUNDS_PENALTY = -10.0;
     public static final double OBSTACLE_CLOSE_PENALTY = -0.5;
     public static final double OBSTACLE_NEAR_PENALTY = -0.2;
     public static final double SHARP_TURN_PENALTY = -0.1;
-    public static final double STATIONARY_PENALTY = -100;  // Penalty per update when not moving
+    public static final double STATIONARY_PENALTY = -0.3;  // Penalty per update when not moving
+    public static final double MIN_MOVEMENT_THRESHOLD = 3;
     public static final double FORWARD_PROGRESS_REWARD = 0.8;  // Multiplier for forward movement
     
     // DQN Parameters
@@ -50,7 +51,7 @@ public class Config {
     public static final int OUTPUT_SIZE = 4;  // Four possible actions: up, down, left, right
     public static final double LEARNING_RATE = 0.001;
     public static final double WEIGHT_INIT_STD = 2.0;  // For weight initialization
-
+    
     // Car Parameters
     public static final double CAR_SIZE = 5;  // Diameter of car circle
     public static final double DIRECTION_LINE_LENGTH = 20;
@@ -58,7 +59,8 @@ public class Config {
     public static final double INITIAL_SPEED = 1.0;
     public static final double MAX_SPEED = 10;
     public static final int TIMES_ACC = 10;  // Number of times the same action can be repeated to increase speed
-    public static final double ACC_MODIFIER = 1.5;  // Multiplier for speed increase
+    public static final double ACC_MODIFIER = 2;  // Multiplier for speed increase
+    public static final double STEP_PENALTY = 0.1;
     
     // Obstacle Parameters
     public static final double OBSTACLE_SIZE = 120;  // Width/Height of obstacle
@@ -70,9 +72,9 @@ public class Config {
     public static final int LIVE_DATA_WINDOW_WIDTH = 800;
     public static final int LIVE_DATA_WINDOW_HEIGHT = 600;
     public static final int MAX_DATA_POINTS = 100;
-    public static final int SIMULATION_SLEEP_MS = 2;
+    public static final int SIMULATION_SLEEP_MS = 1;
 
     // UI Update Parameters
-    public static final int UI_UPDATE_INTERVAL_MS = 16;  // ~60 FPS
+    public static final int UI_PAUSE_INTERVAL_MS = 3;  // ~60 FPS
     public static final int UI_QUEUE_CAPACITY = 1000;    // Maximum number of pending updates
 }
