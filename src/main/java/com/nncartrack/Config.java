@@ -8,7 +8,7 @@ public class Config {
     
     // Window size includes margins
     public static final int WINDOW_WIDTH = TRACK_WIDTH + (int)(TRACK_MARGIN * 2);
-    public static final int WINDOW_HEIGHT = TRACK_HEIGHT + (int)(TRACK_MARGIN * 2);
+    public static final int WINDOW_HEIGHT = TRACK_HEIGHT + (int)(TRACK_MARGIN * 2) + 100;  // Extra space for UI
     
     // Adjust starting position to account for margin
     public static final double STARTING_X = TRACK_MARGIN + 50.0;

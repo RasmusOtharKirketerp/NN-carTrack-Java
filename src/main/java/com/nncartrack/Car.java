@@ -165,7 +165,7 @@ public class Car {
         if (this == highestScoreCar || this == lowestScoreCar) {
             g.setColor((hasFinished || isOutOfBoundsState) ? Color.RED : Color.BLUE);
         } else {
-            g.setColor(new Color(100, 100, 100)); // Dim color for other cars
+            g.setColor(new Color(200, 200, 50)); // Dim color for other cars
         }
         g.fillOval((int) x - (int)(Config.CAR_SIZE/2), 
                    (int) y - (int)(Config.CAR_SIZE/2), 
@@ -176,12 +176,6 @@ public class Car {
         if (this == highestScoreCar || this == lowestScoreCar) {
             g.setColor(Color.BLACK);
             g.drawString(String.format("Car %d: %.2f", carIndex, totalReward), (int) x - 20, (int) y - 10);
-        }
-
-        // Draw finish line
-        if (g != null) {
-            g.setColor(Color.GREEN);
-            g.drawLine((int)FINISH_LINE_X, (int)MIN_Y, (int)FINISH_LINE_X, (int)MAX_Y);
         }
     }
 

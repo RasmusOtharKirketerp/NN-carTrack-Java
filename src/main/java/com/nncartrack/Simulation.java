@@ -12,6 +12,8 @@ public class Simulation extends JPanel {  // Remove Scrollable interface
     private double[] recentScores = new double[10]; // Track last 10 episodes
     private int scoreIndex = 0;
     private Logger logger = Logger.getInstance();
+    private JProgressBar progressBar;
+    private JProgressBar overallProgressBar;
 
     public Simulation() {
         setDoubleBuffered(true);  // Add double buffering
@@ -22,20 +24,29 @@ public class Simulation extends JPanel {  // Remove Scrollable interface
         }
         liveData = new LiveDataWindow();
         liveData.setVisible(true);  // Explicitly make LiveDataWindow visible
+        progressBar = new JProgressBar(0, Config.STEPS_PER_EPISODE);
+        progressBar.setStringPainted(true);
+        overallProgressBar = new JProgressBar(0, Config.NUMBER_OF_EPISODES);
+        overallProgressBar.setStringPainted(true);
+        setLayout(new BorderLayout());
+        JPanel progressPanel = new JPanel(new GridLayout(2, 1));
+        progressPanel.add(progressBar);
+        progressPanel.add(overallProgressBar);
+        add(progressPanel, BorderLayout.NORTH);
     }
 
     public void runEpisode() {
         episode++;
         carsFinished = 0;
+        progressBar.setValue(0);
+        overallProgressBar.setValue(episode);
+        overallProgressBar.setString(String.format("Episodes: %d/%d (%.2f%%)", episode, Config.NUMBER_OF_EPISODES, (episode / (double) Config.NUMBER_OF_EPISODES) * 100));
         
         double episodeStartTime = System.currentTimeMillis();
         
-        // Reset rewards at start of episode
-        for (Car car : cars) {
-            car.setTotalReward(0);
-        }
-        
         for (int t = 0; t < Config.STEPS_PER_EPISODE && carsFinished < cars.size(); t++) {
+            progressBar.setValue(t);
+            progressBar.setString(String.format("Steps: %d/%d (%.2f%%)", t, Config.STEPS_PER_EPISODE, (t / (double) Config.STEPS_PER_EPISODE) * 100));
             for (int i = 0; i < cars.size(); i++) {
                 Car car = cars.get(i);
                 if (!car.hasFinished()) {
@@ -145,6 +156,10 @@ public class Simulation extends JPanel {  // Remove Scrollable interface
         // Draw track boundaries
         g.setColor(Color.DARK_GRAY);
         g.drawRect(roadX, roadY, roadWidth, roadHeight);
+
+        // Draw finish line
+        g.setColor(Color.GREEN);
+        g.drawLine((int) Config.TRACK_MARGIN + Config.TRACK_WIDTH - 20, (int) Config.TRACK_MARGIN, (int) Config.TRACK_MARGIN + Config.TRACK_WIDTH - 20, (int) Config.TRACK_MARGIN + Config.TRACK_HEIGHT);
     
         // Draw cars
         for (Car car : cars) {
