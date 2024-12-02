@@ -46,9 +46,8 @@ public class PrioritizedReplayMemory {
             .toArray();
         
         // Normalize probabilities
-        double probabilitySum = Arrays.stream(probabilities).sum();
         for (int i = 0; i < probabilities.length; i++) {
-            probabilities[i] /= probabilitySum;
+            probabilities[i] /= total;
         }
         
         // Create cumulative sum for sampling
