@@ -14,7 +14,7 @@ public class Config {
     public static final double STARTING_X = TRACK_MARGIN + 50.0;
     public static final double STARTING_Y = TRACK_HEIGHT / 2 + TRACK_MARGIN;
 
-    public static final int NUMBER_OF_CARS = 20;  // Can increase since they overlap
+    public static final int NUMBER_OF_CARS = 10;  // Can increase since they overlap
     public static final int NUMBER_OF_EPISODES = 50;  // Increased for better learning
 
     // Rewards

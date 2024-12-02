@@ -1,7 +1,11 @@
 package com.nncartrack;
 
 import javax.swing.*;
+import javax.imageio.ImageIO;
 import java.awt.*;
+import java.awt.Image;
+import java.io.File;
+import java.io.IOException;
 import java.util.ArrayList;
 
 public class Simulation extends JPanel {  // Remove Scrollable interface
@@ -14,6 +18,7 @@ public class Simulation extends JPanel {  // Remove Scrollable interface
     private Logger logger = Logger.getInstance();
     private JProgressBar progressBar;
     private JProgressBar overallProgressBar;
+    private Image carImage;
 
     public Simulation() {
         setDoubleBuffered(true);  // Add double buffering
@@ -33,6 +38,14 @@ public class Simulation extends JPanel {  // Remove Scrollable interface
         progressPanel.add(progressBar);
         progressPanel.add(overallProgressBar);
         add(progressPanel, BorderLayout.NORTH);
+
+        // Load the car image
+        try {
+            carImage = ImageIO.read(new File("src\\main\\java\\com\\nncartrack\\car.png")); // Provide the correct path to your image
+        } catch (IOException e) {
+            System.err.println("Error loading car image: " + e.getMessage());
+            carImage = null; // Fallback if image is not found
+        }
     }
 
     public void runEpisode() {
@@ -78,11 +91,6 @@ public class Simulation extends JPanel {  // Remove Scrollable interface
         }
         
         double averageReward = totalReward / cars.size();
-        System.out.println("Average Reward: " + String.format("%.2f", averageReward));
-        System.out.println("Best Reward: " + String.format("%.2f", bestReward));
-        System.out.println("Worst Reward: " + String.format("%.2f", worstReward));
-        System.out.println("Epsilon: " + String.format("%.4f", cars.get(0).getBrain().getEpsilon()));
-        System.out.println("================================\n");
         
         // Calculate average score from recent episodes
         recentScores[scoreIndex] = averageReward;
@@ -102,7 +110,9 @@ public class Simulation extends JPanel {  // Remove Scrollable interface
             averageReward,
             bestReward,
             worstReward,
-            cars.get(0).getBrain().getEpsilon()
+            cars.get(0).getBrain().getEpsilon(),
+            cars.get(0).getBrain().getMaxQValue(),
+            cars.get(0).getBrain().getCurrentLoss()
         );
         
         // Update live data window
@@ -162,8 +172,25 @@ public class Simulation extends JPanel {  // Remove Scrollable interface
         g.drawLine((int) Config.TRACK_MARGIN + Config.TRACK_WIDTH - 20, (int) Config.TRACK_MARGIN, (int) Config.TRACK_MARGIN + Config.TRACK_WIDTH - 20, (int) Config.TRACK_MARGIN + Config.TRACK_HEIGHT);
     
         // Draw cars
+        renderCars(g);
+    }
+    
+    private void renderCars(Graphics g) {
         for (Car car : cars) {
-            car.draw(g, cars);
+            double x = car.getX();
+            double y = car.getY();
+            if (carImage != null) {
+                int carWidth = 75; // Adjust size as needed
+                // recalculate x and y to center the image
+                x -= carWidth / 2;
+                y -= carWidth / 2;
+                g.drawImage(carImage, (int) x, (int) y, carWidth, carWidth, this); // Adjust size as needed
+                //g.drawLine((int) x, (int) y, 0, (int) Config.TRACK_WIDTH);
+            } else {
+                // Fallback to circle if image is not available
+                g.setColor(Color.BLUE);
+                g.fillOval((int)x, (int)y, 20, 20);
+            }
         }
     }
     
