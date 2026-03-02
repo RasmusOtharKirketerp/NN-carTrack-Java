@@ -14,11 +14,11 @@ public class PrioritizedReplayMemory {
     private List<Integer> sampledIndices = new ArrayList<>();  // To store sampled indices
 
     private PrioritizedReplayMemory() {
-        this.capacity = Config.MEMORY_SIZE;
-        this.alpha = Config.PER_ALPHA;
-        this.epsilon = Config.PER_EPSILON;
-        this.beta = Config.PER_BETA_START;
-        this.betaIncrement = Config.PER_BETA_INCREMENT;
+        this.capacity = com.nncartrack.Config.MEMORY_SIZE;
+        this.alpha = com.nncartrack.Config.PER_ALPHA;
+        this.epsilon = com.nncartrack.Config.PER_EPSILON;
+        this.beta = com.nncartrack.Config.PER_BETA_START;
+        this.betaIncrement = com.nncartrack.Config.PER_BETA_INCREMENT;
         this.experiences = new ArrayList<>();
         this.priorities = new ArrayList<>();
     }
@@ -38,17 +38,24 @@ public class PrioritizedReplayMemory {
 
     public synchronized List<Experience> sample(int batchSize) {
         sampledIndices.clear();
+        List<Experience> batch = new ArrayList<>();
+        if (experiences.isEmpty()) {
+            return batch;
+        }
         
         // Calculate sampling probabilities
         double total = priorities.stream().mapToDouble(Double::doubleValue).sum();
-        double[] probabilities = priorities.stream()
-            .mapToDouble(p -> Math.pow(p / total, beta))  // Apply beta for importance sampling
-            .toArray();
-        
-        // Normalize probabilities
-        for (int i = 0; i < probabilities.length; i++) {
-            probabilities[i] /= total;
+        if (total <= 0.0) {
+            // Fallback to uniform probabilities in degenerate cases.
+            total = priorities.size();
+            for (int i = 0; i < priorities.size(); i++) {
+                priorities.set(i, 1.0);
+            }
         }
+        final double normalizationTotal = total;
+        double[] probabilities = priorities.stream()
+            .mapToDouble(p -> p / normalizationTotal)
+            .toArray();
         
         // Create cumulative sum for sampling
         double[] cumulativeSum = new double[probabilities.length];
@@ -58,8 +65,7 @@ public class PrioritizedReplayMemory {
         }
 
         // Sample experiences
-        List<Experience> batch = new ArrayList<>();
-        for (int i = 0; i < batchSize && !experiences.isEmpty(); i++) {
+        for (int i = 0; i < batchSize; i++) {
             double randVal = Math.random();
             int index = Arrays.binarySearch(cumulativeSum, randVal);
             if (index < 0) {
