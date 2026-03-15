@@ -29,6 +29,9 @@ public class NeuralNetwork {
     private int trainBatchCounter = 0;
     private Logger logger = Logger.getInstance();
     private final boolean inferenceOnly = Config.isInferenceOnly();
+    private double[] latestInputs = new double[inputSize];
+    private double[] latestHiddenActivations = new double[hiddenSize];
+    private double[] latestOutputs = new double[outputSize];
     
     public NeuralNetwork() {
         weightsInputHidden = new double[inputSize][hiddenSize];
@@ -203,6 +206,7 @@ public class NeuralNetwork {
     // ...existing code...
     // Forward propagation
     public double[] forward(double[] inputs) {
+        latestInputs = Arrays.copyOf(inputs, inputs.length);
         // Hidden layer activations
         double[] hidden = new double[hiddenSize];
         for (int i = 0; i < hiddenSize; i++) {
@@ -222,6 +226,9 @@ public class NeuralNetwork {
             }
             outputs[i] = sum;
         }
+
+        latestHiddenActivations = Arrays.copyOf(hidden, hidden.length);
+        latestOutputs = Arrays.copyOf(outputs, outputs.length);
 
         return outputs;
     }
@@ -371,6 +378,24 @@ public class NeuralNetwork {
     // Add getters for metrics
     public double getCurrentLoss() { return currentLoss; }
     public double getMaxQValue() { return maxQValue; }
+    public int getTrainBatchCounter() { return trainBatchCounter; }
+    public double[] getLatestInputs() { return Arrays.copyOf(latestInputs, latestInputs.length); }
+    public double[] getLatestHiddenActivations() { return Arrays.copyOf(latestHiddenActivations, latestHiddenActivations.length); }
+    public double[] getLatestOutputs() { return Arrays.copyOf(latestOutputs, latestOutputs.length); }
+    public double[][] getWeightsInputHiddenCopy() {
+        double[][] copy = new double[weightsInputHidden.length][];
+        for (int i = 0; i < weightsInputHidden.length; i++) {
+            copy[i] = Arrays.copyOf(weightsInputHidden[i], weightsInputHidden[i].length);
+        }
+        return copy;
+    }
+    public double[][] getWeightsHiddenOutputCopy() {
+        double[][] copy = new double[weightsHiddenOutput.length][];
+        for (int i = 0; i < weightsHiddenOutput.length; i++) {
+            copy[i] = Arrays.copyOf(weightsHiddenOutput[i], weightsHiddenOutput[i].length);
+        }
+        return copy;
+    }
     
     public double getEpsilon() {
         return epsilon;

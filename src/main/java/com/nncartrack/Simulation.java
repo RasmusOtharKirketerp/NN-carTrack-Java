@@ -13,7 +13,7 @@ public class Simulation extends JPanel {  // Remove Scrollable interface
     private int episode = 0;
     private int carsFinished = 0;
     private LiveDataWindow liveData;
-    private LiveRankingWindow rankingWindow;
+    private LiveNNStatusWindow nnStatusWindow;
     private double[] recentScores = new double[10]; // Track last 10 episodes
     private int scoreIndex = 0;
     private Logger logger = Logger.getInstance();
@@ -33,8 +33,8 @@ public class Simulation extends JPanel {  // Remove Scrollable interface
         if (!Config.isHeadlessLogsOnly()) {
             liveData = new LiveDataWindow();
             liveData.setVisible(true);  // Explicitly make LiveDataWindow visible
-            rankingWindow = new LiveRankingWindow();
-            rankingWindow.setVisible(true);
+            nnStatusWindow = new LiveNNStatusWindow();
+            nnStatusWindow.setVisible(true);
             progressBar = new JProgressBar(0, Config.dynamicStepsPerEpisode());
             progressBar.setStringPainted(true);
             overallProgressBar = new JProgressBar(0, Config.NUMBER_OF_EPISODES);
@@ -66,8 +66,8 @@ public class Simulation extends JPanel {  // Remove Scrollable interface
             if (!Config.isHeadlessLogsOnly()) {
                 progressBar.setValue(t);
                 progressBar.setString(String.format("Steps: %d/%d (%.2f%%)", t, episodeStepBudget, (t / (double) episodeStepBudget) * 100));
-                if (rankingWindow != null) {
-                    rankingWindow.updateBestRuns(topRunSnapshots);
+                if (nnStatusWindow != null) {
+                    nnStatusWindow.updateStatus(episode, t, carsFinished, cars.size(), currentLeader());
                 }
             }
             for (int i = 0; i < cars.size(); i++) {
@@ -135,8 +135,8 @@ public class Simulation extends JPanel {  // Remove Scrollable interface
                 cars.get(0).getBrain().getCurrentLoss(),
                 avgRecentScore
             );
-            if (rankingWindow != null) {
-                rankingWindow.updateBestRuns(topRunSnapshots);
+            if (nnStatusWindow != null) {
+                nnStatusWindow.updateStatus(episode, episodeStepBudget, carsFinished, cars.size(), currentLeader());
             }
         }
 
@@ -185,6 +185,13 @@ public class Simulation extends JPanel {  // Remove Scrollable interface
         }
         double spacing = (maxY - minY) / (Config.numberOfCars() - 1);
         return minY + spacing * carIndex;
+    }
+
+    private Car currentLeader() {
+        if (cars == null || cars.isEmpty()) {
+            return null;
+        }
+        return Collections.max(cars, Comparator.comparingDouble(Car::getTotalReward));
     }
 
     @Override
