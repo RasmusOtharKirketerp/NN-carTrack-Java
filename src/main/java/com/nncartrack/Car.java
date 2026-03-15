@@ -89,12 +89,16 @@ public class Car {
     private final double[] rewardEventTotals = new double[REWARD_EVT_COUNT];
 
     public Car(double x, double y, int index) {
+        this(x, y, index, new NeuralNetwork());
+    }
+
+    public Car(double x, double y, int index, NeuralNetwork brain) {
         this.startX = x;
         this.x = x;
         this.y = y;
         this.carIndex = index;
         this.speed = Config.INITIAL_SPEED;
-        brain = new NeuralNetwork();  // Create new brain instead of using shared
+        this.brain = brain;
         this.lastX = x;
         this.lastY = y;
         this.progressWindowStartX = x;
@@ -162,7 +166,7 @@ public class Car {
             totalReward += penalty;
             recordStepReward();
             double[] nextState = buildStateVector(nextStateBuffer);
-            brain.trainWithReward(inputs, penalty, nextState, false);
+            brain.addExperience(inputs, action, penalty, nextState, false);
             return;
         }
         if (isInsideObstacle()) {
@@ -176,7 +180,7 @@ public class Car {
             totalReward += penalty;
             recordStepReward();
             double[] nextState = buildStateVector(nextStateBuffer);
-            brain.trainWithReward(inputs, penalty, nextState, false);
+            brain.addExperience(inputs, action, penalty, nextState, false);
             return;
         }
 
@@ -189,11 +193,8 @@ public class Car {
         double[] nextState = buildStateVector(nextStateBuffer);
         boolean done = isOutOfBoundsState || hasFinished;
         
-        // Add experience every step; train at a lower frequency for speed.
-        brain.addExperience(inputs, reward, nextState, done);
-        if (updateCount % Config.TRAIN_EVERY_N_STEPS == 0 || done) {
-            brain.train();
-        }
+        // Shared-brain mode collects experiences here; Simulation drives training cadence.
+        brain.addExperience(inputs, action, reward, nextState, done);
     }
 
     // Calculate the reward based on the car's state
@@ -449,10 +450,12 @@ public class Car {
         for (int i = 0; i < Config.OBSTACLE_COUNT; i++) {
             int ox = Config.obstacleX(i);
             int oy = Config.obstacleY(i);
+            int ow = Config.obstacleWidth(i);
+            int oh = Config.obstacleHeight(i);
             if (x >= ox
-                && x <= ox + Config.OBSTACLE_WIDTH
+                && x <= ox + ow
                 && y >= oy
-                && y <= oy + Config.OBSTACLE_HEIGHT) {
+                && y <= oy + oh) {
                 return true;
             }
         }
@@ -491,7 +494,9 @@ public class Car {
         for (int i = 0; i < Config.OBSTACLE_COUNT; i++) {
             int ox = Config.obstacleX(i);
             int oy = Config.obstacleY(i);
-            if (px >= ox && px <= ox + Config.OBSTACLE_WIDTH && py >= oy && py <= oy + Config.OBSTACLE_HEIGHT) {
+            int ow = Config.obstacleWidth(i);
+            int oh = Config.obstacleHeight(i);
+            if (px >= ox && px <= ox + ow && py >= oy && py <= oy + oh) {
                 return true;
             }
         }
@@ -511,8 +516,8 @@ public class Car {
         for (int i = 0; i < Config.OBSTACLE_COUNT; i++) {
             int ox = Config.obstacleX(i);
             int oy = Config.obstacleY(i);
-            int ow = Config.OBSTACLE_WIDTH;
-            int oh = Config.OBSTACLE_HEIGHT;
+            int ow = Config.obstacleWidth(i);
+            int oh = Config.obstacleHeight(i);
             if (x >= ox && x <= ox + ow && y >= oy && y <= oy + oh) {
                 double left = Math.abs(x - ox);
                 double right = Math.abs((ox + ow) - x);

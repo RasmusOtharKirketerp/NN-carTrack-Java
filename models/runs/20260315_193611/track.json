@@ -1,0 +1,29 @@
+{
+  "name": "default",
+  "margin": 80.0,
+  "width": 3200,
+  "height": 600,
+  "startX": 180.0,
+  "startY": 380.0,
+  "finishX": 3240.0,
+  "obstacles": [
+    {
+      "x": 1340.0,
+      "y": 100.0,
+      "width": 180,
+      "height": 280
+    },
+    {
+      "x": 1840.0,
+      "y": 240.0,
+      "width": 180,
+      "height": 280
+    },
+    {
+      "x": 2340.0,
+      "y": 380.0,
+      "width": 180,
+      "height": 280
+    }
+  ]
+}

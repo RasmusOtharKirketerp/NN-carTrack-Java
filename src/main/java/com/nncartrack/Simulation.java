@@ -1,19 +1,23 @@
 package com.nncartrack;
 
+import javax.imageio.ImageIO;
 import javax.swing.*;
 import java.awt.*;
-import java.util.ArrayList;
 import java.awt.geom.Point2D;
+import java.awt.image.BufferedImage;
 import java.io.IOException;
+import java.lang.reflect.InvocationTargetException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
-import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.Comparator;
 import java.util.Collections;
 import java.util.List;
+import java.util.ArrayList;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 public class Simulation extends JPanel {  // Remove Scrollable interface
+    private final NeuralNetwork sharedBrain;
     private ArrayList<Car> cars;
     private int episode = 0;
     private int carsFinished = 0;
@@ -29,13 +33,15 @@ public class Simulation extends JPanel {  // Remove Scrollable interface
     private double bestModelReward = Double.NEGATIVE_INFINITY;
     private final AtomicBoolean stopRequested = new AtomicBoolean(false);
     private final AtomicBoolean modelFinalized = new AtomicBoolean(false);
+    private JFrame simulationFrame;
 
     public Simulation() {
         setDoubleBuffered(true);  // Add double buffering
+        sharedBrain = new NeuralNetwork();
         cars = new ArrayList<>();
         // Start cars evenly distributed vertically across the lane.
         for (int i = 0; i < Config.numberOfCars(); i++) {
-            cars.add(new Car(Config.STARTING_X, startYForCar(i), i));
+            cars.add(new Car(Config.STARTING_X, startYForCar(i), i, sharedBrain));
         }
         if (!Config.isHeadlessLogsOnly()) {
             liveData = new LiveDataWindow();
@@ -73,6 +79,7 @@ public class Simulation extends JPanel {  // Remove Scrollable interface
         double episodeStartTime = System.currentTimeMillis();
         
         for (int t = 0; t < episodeStepBudget && carsTerminated < cars.size() && !stopRequested.get(); t++) {
+            boolean terminalEventThisStep = false;
             if (!Config.isHeadlessLogsOnly()) {
                 double episodeElapsedSeconds = (System.currentTimeMillis() - episodeStartTime) / 1000.0;
                 progressBar.setValue(t);
@@ -89,12 +96,17 @@ public class Simulation extends JPanel {  // Remove Scrollable interface
 
                     if (car.isTerminated()) {
                         carsTerminated++;
+                        terminalEventThisStep = true;
                     }
                     if (car.hasFinished()) {
                         carsFinished++;
                         logger.logCarFinish(car.getTotalReward());
                     }
                 }
+            }
+            if (!Config.isInferenceOnly()
+                && ((t + 1) % Config.TRAIN_EVERY_N_STEPS == 0 || terminalEventThisStep)) {
+                sharedBrain.train();
             }
             if (!Config.isHeadlessLogsOnly() && t % Config.RENDER_EVERY_N_STEPS == 0) {
                 repaint();
@@ -145,18 +157,18 @@ public class Simulation extends JPanel {  // Remove Scrollable interface
             averageReward,
             bestReward,
             worstReward,
-            cars.get(0).getBrain().getEpsilon(),
-            cars.get(0).getBrain().getMaxQValue(),
-            cars.get(0).getBrain().getCurrentLoss()
+            sharedBrain.getEpsilon(),
+            sharedBrain.getMaxQValue(),
+            sharedBrain.getCurrentLoss()
         );
         
         // Update live data window
         if (!Config.isHeadlessLogsOnly()) {
             liveData.updateData(
                 episode,
-                cars.get(0).getBrain().getEpsilon(),
-                cars.get(0).getBrain().getMaxQValue(),
-                cars.get(0).getBrain().getCurrentLoss(),
+                sharedBrain.getEpsilon(),
+                sharedBrain.getMaxQValue(),
+                sharedBrain.getCurrentLoss(),
                 avgRecentScore,
                 carsFinished,
                 cars.size(),
@@ -184,15 +196,13 @@ public class Simulation extends JPanel {  // Remove Scrollable interface
             extraBoostBatches = (int) Math.round(normalized * Config.SUCCESS_BOOST_MAX_EXTRA_BATCHES);
         }
         if (extraBoostBatches > 0) {
-            for (Car car : cars) {
-                car.getBrain().trainMultiple(extraBoostBatches);
-            }
+            sharedBrain.trainMultiple(extraBoostBatches);
         }
 
         if (!Config.isInferenceOnly()) {
             Car bestCar = Collections.max(cars, Comparator.comparingDouble(Car::getTotalReward));
             if (bestCar.getTotalReward() > bestModelReward) {
-                if (bestCar.getBrain().saveModel(Config.MODEL_SAVE_FILE_PATH)) {
+                if (sharedBrain.saveModel(Config.MODEL_SAVE_FILE_PATH)) {
                     bestModelReward = bestCar.getTotalReward();
                 }
             }
@@ -201,9 +211,7 @@ public class Simulation extends JPanel {  // Remove Scrollable interface
         updateTopRunSnapshots();
 
         // After episode ends, call onEpisodeEnd for each car's brain
-        for (Car car : cars) {
-            car.getBrain().onEpisodeEnd();
-        }
+        sharedBrain.onEpisodeEnd();
         
         // Reset all cars to same starting position
         for (int i = 0; i < cars.size(); i++) {
@@ -215,6 +223,10 @@ public class Simulation extends JPanel {  // Remove Scrollable interface
         if (stopRequested.compareAndSet(false, true)) {
             System.out.println("Stop requested. Finalizing current run...");
         }
+    }
+
+    public void setSimulationFrame(JFrame simulationFrame) {
+        this.simulationFrame = simulationFrame;
     }
 
     private double startYForCar(int carIndex) {
@@ -486,13 +498,13 @@ public class Simulation extends JPanel {  // Remove Scrollable interface
     }
 
     private void renderObstacle(Graphics2D g2d) {
-        int w = Config.OBSTACLE_WIDTH;
-        int h = Config.OBSTACLE_HEIGHT;
         Font oldFont = g2d.getFont();
         g2d.setFont(oldFont.deriveFont(Font.BOLD, 30f));
         for (int i = 0; i < Config.OBSTACLE_COUNT; i++) {
             int x = Config.obstacleX(i);
             int y = Config.obstacleY(i);
+            int w = Config.obstacleWidth(i);
+            int h = Config.obstacleHeight(i);
             g2d.setColor(new Color(80, 45, 25));
             g2d.fillRoundRect(x, y, w, h, 12, 12);
             g2d.setColor(new Color(245, 210, 120));
@@ -520,6 +532,7 @@ public class Simulation extends JPanel {  // Remove Scrollable interface
                 }
             }
         }
+        RunArtifacts.initializeForTrainingRun();
 
         long runStartNanos = System.nanoTime();
         Simulation sim = new Simulation();
@@ -535,6 +548,7 @@ public class Simulation extends JPanel {  // Remove Scrollable interface
         }
 
         JFrame frame = new JFrame("Car Racing Simulation with Neural Networks");
+        sim.setSimulationFrame(frame);
         frame.add(sim);  // Direct add, no scroll pane
         frame.setSize(Config.WINDOW_WIDTH, Config.WINDOW_HEIGHT);
         frame.setDefaultCloseOperation(JFrame.DISPOSE_ON_CLOSE);
@@ -543,7 +557,7 @@ public class Simulation extends JPanel {  // Remove Scrollable interface
             public void windowClosing(java.awt.event.WindowEvent e) {
                 sim.requestStop();
                 sim.finalizeModelOutput((System.nanoTime() - runStartNanos) / 1_000_000_000.0);
-                frame.dispose();
+                sim.closeWindows();
                 System.exit(0);
             }
         });
@@ -559,7 +573,7 @@ public class Simulation extends JPanel {  // Remove Scrollable interface
             public void actionPerformed(java.awt.event.ActionEvent e) {
                 sim.requestStop();
                 sim.finalizeModelOutput((System.nanoTime() - runStartNanos) / 1_000_000_000.0);
-                frame.dispose();
+                sim.closeWindows();
                 System.exit(0);
             }
         });
@@ -571,10 +585,26 @@ public class Simulation extends JPanel {  // Remove Scrollable interface
                 sim.runEpisode();
             }
             sim.finalizeModelOutput((System.nanoTime() - runStartNanos) / 1_000_000_000.0);
-            if (sim.stopRequested.get()) {
-                SwingUtilities.invokeLater(frame::dispose);
-            }
+            SwingUtilities.invokeLater(() -> {
+                if (!sim.stopRequested.get()) {
+                    System.out.println("Training run complete. Closing application...");
+                }
+                sim.closeWindows();
+                System.exit(0);
+            });
         }).start();
+    }
+
+    private void closeWindows() {
+        if (simulationFrame != null) {
+            simulationFrame.dispose();
+        }
+        if (liveData != null) {
+            liveData.dispose();
+        }
+        if (nnStatusWindow != null) {
+            nnStatusWindow.dispose();
+        }
     }
 
     private void finalizeModelOutput(double totalRuntimeSeconds) {
@@ -584,6 +614,7 @@ public class Simulation extends JPanel {  // Remove Scrollable interface
         if (Config.isInferenceOnly()) {
             return;
         }
+        captureRunArtifacts();
         Path source = Path.of(Config.MODEL_SAVE_FILE_PATH);
         if (!Files.exists(source)) {
             return;
@@ -603,6 +634,61 @@ public class Simulation extends JPanel {  // Remove Scrollable interface
             System.out.println("Final model file: " + target);
         } catch (IOException e) {
             System.err.println("Failed to finalize model output name: " + e.getMessage());
+        }
+    }
+
+    private void captureRunArtifacts() {
+        try {
+            Files.createDirectories(RunArtifacts.runDirectory());
+        } catch (IOException e) {
+            System.err.println("Failed to prepare run artifact directory: " + e.getMessage());
+            return;
+        }
+
+        RunArtifacts.copyAnalysisFilesToRunFolder();
+        if (Config.isHeadlessLogsOnly()) {
+            return;
+        }
+
+        Runnable captureTask = () -> {
+            saveWindowSnapshot(simulationFrame, RunArtifacts.runDirectory().resolve("snapshot-simulation.png"));
+            saveWindowSnapshot(liveData, RunArtifacts.runDirectory().resolve("snapshot-telemetry.png"));
+            saveWindowSnapshot(nnStatusWindow, RunArtifacts.runDirectory().resolve("snapshot-nn-status.png"));
+        };
+
+        if (SwingUtilities.isEventDispatchThread()) {
+            captureTask.run();
+            return;
+        }
+
+        try {
+            SwingUtilities.invokeAndWait(captureTask);
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            System.err.println("Interrupted while capturing run snapshots.");
+        } catch (InvocationTargetException e) {
+            Throwable cause = e.getCause() == null ? e : e.getCause();
+            System.err.println("Failed to capture run snapshots: " + cause.getMessage());
+        }
+    }
+
+    private void saveWindowSnapshot(Window window, Path target) {
+        if (window == null || !window.isDisplayable() || window.getWidth() <= 0 || window.getHeight() <= 0) {
+            return;
+        }
+
+        BufferedImage image = new BufferedImage(window.getWidth(), window.getHeight(), BufferedImage.TYPE_INT_ARGB);
+        Graphics2D graphics = image.createGraphics();
+        try {
+            window.paintAll(graphics);
+        } finally {
+            graphics.dispose();
+        }
+
+        try {
+            ImageIO.write(image, "png", target.toFile());
+        } catch (IOException e) {
+            System.err.println("Failed to write snapshot " + target.getFileName() + ": " + e.getMessage());
         }
     }
 }

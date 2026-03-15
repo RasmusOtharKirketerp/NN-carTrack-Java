@@ -25,7 +25,6 @@ public class LiveDataWindow extends JFrame {
     private XYSeries epsilonSeries;
     private XYSeries carsFinishedSeries;
     private XYSeries episodeTimeSeries;
-    private static final int MAX_DATA_POINTS = Config.MAX_DATA_POINTS;
     private final Queue<DataUpdate> updateQueue;
     private final Timer updateTimer;
     private final List<DataUpdate> history = new ArrayList<>();
@@ -174,6 +173,7 @@ public class LiveDataWindow extends JFrame {
 
     private void processUpdates() {
         DataUpdate update;
+        boolean historyChanged = false;
         while ((update = updateQueue.poll()) != null) {
             episodeLabel.setText(String.format(
                 "EPISODE %d  |  MODE: TRAINING  |  FINISHED: %d/%d  |  TIME: %.3fs",
@@ -183,30 +183,32 @@ public class LiveDataWindow extends JFrame {
                 update.episodeTimeSeconds
             ));
             history.add(update);
-            if (history.size() > MAX_DATA_POINTS) {
-                history.remove(0);
-            }
+            historyChanged = true;
+        }
 
-            boolean shouldUseSymlog = shouldUseSymlog(history);
-            if (shouldUseSymlog != useSymlog) {
-                useSymlog = shouldUseSymlog;
-                primaryAxis.setLabel(useSymlog ? "Value (symlog)" : "Value");
-            }
+        if (!historyChanged) {
+            return;
+        }
 
-            rewardSeries.clear();
-            lossSeries.clear();
-            qMaxSeries.clear();
-            epsilonSeries.clear();
-            carsFinishedSeries.clear();
-            episodeTimeSeries.clear();
-            for (DataUpdate h : history) {
-                rewardSeries.add(h.episode, displayValue(h.avgScore));
-                lossSeries.add(h.episode, displayValue(h.loss));
-                qMaxSeries.add(h.episode, displayValue(h.qMax));
-                epsilonSeries.add(h.episode, h.epsilon);
-                carsFinishedSeries.add(h.episode, h.carsFinished);
-                episodeTimeSeries.add(h.episode, h.episodeTimeSeconds);
-            }
+        boolean shouldUseSymlog = shouldUseSymlog(history);
+        if (shouldUseSymlog != useSymlog) {
+            useSymlog = shouldUseSymlog;
+            primaryAxis.setLabel(useSymlog ? "Value (symlog)" : "Value");
+        }
+
+        rewardSeries.clear();
+        lossSeries.clear();
+        qMaxSeries.clear();
+        epsilonSeries.clear();
+        carsFinishedSeries.clear();
+        episodeTimeSeries.clear();
+        for (DataUpdate h : history) {
+            rewardSeries.add(h.episode, displayValue(h.avgScore));
+            lossSeries.add(h.episode, displayValue(h.loss));
+            qMaxSeries.add(h.episode, displayValue(h.qMax));
+            epsilonSeries.add(h.episode, h.epsilon);
+            carsFinishedSeries.add(h.episode, h.carsFinished);
+            episodeTimeSeries.add(h.episode, h.episodeTimeSeconds);
         }
     }
     

@@ -116,12 +116,13 @@ public class NeuralNetwork {
         double maxWeight = 0.0;
         double[] weights = new double[batch.size()];
         double sumPriorities = memory.getSumPriorities();
+        int replaySize = memory.size();
         
         for (int i = 0; i < batch.size(); i++) {
             // Calculate importance sampling weight for this experience
             double priority = memory.getPriority(sampledIndices.get(i));
             double prob = priority / sumPriorities;
-            weights[i] = Math.pow(prob * batch.size(), -beta);
+            weights[i] = Math.pow(prob * replaySize, -beta);
             maxWeight = Math.max(maxWeight, weights[i]);
         }
         
@@ -317,17 +318,16 @@ public class NeuralNetwork {
         }
     }
 
-    public void trainWithReward(double[] state, double reward, double[] nextState, boolean done) {
+    public void trainWithReward(double[] state, int action, double reward, double[] nextState, boolean done) {
         if (inferenceOnly) return;
-        addExperience(state, reward, nextState, done);
-        train();
+        addExperience(state, action, reward, nextState, done);
     }
 
-    public void addExperience(double[] state, double reward, double[] nextState, boolean done) {
+    public void addExperience(double[] state, int action, double reward, double[] nextState, boolean done) {
         if (inferenceOnly) return;
         double priority = Math.abs(reward);
         PrioritizedReplayMemory.Experience experience = new PrioritizedReplayMemory.Experience(
-            state, selectAction(state), reward, nextState, done);
+            state, action, reward, nextState, done);
         memory.add(experience, priority);
     }
 

@@ -150,16 +150,22 @@ public class Logger {
         }
     }
 
+    public synchronized void flush() {
+        flushWritersSafely();
+    }
+
     private void writeRunMetadata() throws IOException {
         if (!fileLoggingEnabled) {
             return;
         }
         String metadata = String.format(
             Locale.US,
-            "TRACK_WIDTH=%d%nTRACK_HEIGHT=%d%nNUMBER_OF_CARS=%d%nNUMBER_OF_EPISODES=%d%n" +
+            "TRACK_NAME=%s%nTRACK_FILE=%s%nTRACK_WIDTH=%d%nTRACK_HEIGHT=%d%nNUMBER_OF_CARS=%d%nNUMBER_OF_EPISODES=%d%n" +
             "MIN_STEPS_PER_EPISODE=%d%nSTEPS_PER_TRACK_PIXEL=%.4f%nMEMORY_SIZE=%d%nBATCH_SIZE=%d%n" +
             "TRAIN_EVERY_N_STEPS=%d%nTRAIN_LOG_EVERY_N_BATCHES=%d%nLEARNING_RATE=%.6f%nGAMMA=%.6f%n" +
             "EPSILON_START=%.6f%nEPSILON_MIN=%.6f%nEPSILON_DECAY=%.6f%nPER_ALPHA=%.6f%nPER_BETA_START=%.6f%nPER_BETA_INCREMENT=%.6f%n",
+            Config.TRACK_NAME,
+            Config.TRACK_FILE_PATH,
             Config.TRACK_WIDTH,
             Config.TRACK_HEIGHT,
             Config.numberOfCars(),

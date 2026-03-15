@@ -8,6 +8,9 @@ public class Config {
     private static final DateTimeFormatter RUN_TS_FORMAT = DateTimeFormatter.ofPattern("yyyyMMdd_HHmmss");
     public static final String RUN_TIMESTAMP =
         System.getProperty("nn.run.ts", LocalDateTime.now().format(RUN_TS_FORMAT));
+    public static final String TRACK_FILE_PATH =
+        System.getProperty("nn.track.path", "tracks/default.json");
+    public static final TrackDefinition TRACK = TrackLoader.load(TRACK_FILE_PATH);
 
     public static boolean isInferenceOnly() {
         return "play".equalsIgnoreCase(System.getProperty("nn.mode", ""));
@@ -48,19 +51,20 @@ public class Config {
         );
     }
     // Track parameters
-    public static final double TRACK_MARGIN = 80.0;  // Margin around track
-    public static final int TRACK_WIDTH = 3200;      // Track size (scaled x2)
-    public static final int TRACK_HEIGHT = 600;      // Track size (scaled x2)
+    public static final String TRACK_NAME = TRACK.getName();
+    public static final double TRACK_MARGIN = TRACK.getMargin();
+    public static final int TRACK_WIDTH = TRACK.getWidth();
+    public static final int TRACK_HEIGHT = TRACK.getHeight();
     
     // Window size includes margins
     public static final int WINDOW_WIDTH = TRACK_WIDTH + (int)(TRACK_MARGIN * 2);
     public static final int WINDOW_HEIGHT = TRACK_HEIGHT + (int)(TRACK_MARGIN * 2) + 100;  // Extra space for UI
     
     // Adjust starting position to account for margin
-    public static final double STARTING_X = TRACK_MARGIN + 100.0;
-    public static final double STARTING_Y = TRACK_HEIGHT / 2 + TRACK_MARGIN;
+    public static final double STARTING_X = TRACK.getStartX();
+    public static final double STARTING_Y = TRACK.getStartY();
     public static final double DRIVABLE_MAX_X = TRACK_MARGIN + TRACK_WIDTH - 20.0;
-    public static final double FINISH_LINE_X = DRIVABLE_MAX_X - 20.0;
+    public static final double FINISH_LINE_X = TRACK.getFinishX();
 
     public static final int NUMBER_OF_CARS = 14;  // Can increase since they overlap
     public static final int PLAY_MODE_NUMBER_OF_CARS = 1;
@@ -127,13 +131,8 @@ public class Config {
     public static final double ACC_MODIFIER = 1.2;  // Gradual, stable speed increase
     public static final double STEP_PENALTY = 0.1;
 
-    // Obstacle (boxed icon) parameters
-    public static final int OBSTACLE_COUNT = 3;
-    public static final int OBSTACLE_WIDTH = 180;
-    public static final int OBSTACLE_HEIGHT = 280;
-    public static final int OBSTACLE_X = (int) (TRACK_MARGIN + TRACK_WIDTH * 0.55);
-    public static final int OBSTACLE_Y = (int) (TRACK_MARGIN + (TRACK_HEIGHT - OBSTACLE_HEIGHT) / 2.0);
-    public static final int OBSTACLE_GAP = 20;
+    // Obstacle layout is loaded from the track JSON.
+    public static final int OBSTACLE_COUNT = TRACK.getObstacles().size();
     
     // Visualization Parameters
     public static final int LIVE_DATA_WINDOW_WIDTH = 800;
@@ -161,29 +160,23 @@ public class Config {
         return isInferenceOnly() ? playModeCarCount() : NUMBER_OF_CARS;
     }
 
+    public static TrackDefinition.Obstacle obstacle(int index) {
+        return TRACK.getObstacles().get(index);
+    }
+
     public static int obstacleX(int index) {
-        switch (index) {
-            case 0:
-                return OBSTACLE_X - 500; // top block earlier
-            case 1:
-                return OBSTACLE_X;       // middle block center
-            case 2:
-                return OBSTACLE_X + 500; // bottom block later
-            default:
-                return OBSTACLE_X;
-        }
+        return (int) Math.round(obstacle(index).getX());
     }
 
     public static int obstacleY(int index) {
-        switch (index) {
-            case 0:
-                return (int) TRACK_MARGIN + OBSTACLE_GAP; // top
-            case 1:
-                return OBSTACLE_Y; // middle
-            case 2:
-                return (int) (TRACK_MARGIN + TRACK_HEIGHT - OBSTACLE_HEIGHT - OBSTACLE_GAP); // bottom
-            default:
-                return OBSTACLE_Y;
-        }
+        return (int) Math.round(obstacle(index).getY());
+    }
+
+    public static int obstacleWidth(int index) {
+        return obstacle(index).getWidth();
+    }
+
+    public static int obstacleHeight(int index) {
+        return obstacle(index).getHeight();
     }
 }

@@ -1,0 +1,304 @@
+Run artifacts dir: c:\Users\rasmu\OneDrive\Skrivebord\Dev\NN carTrack Java\models\runs\20260315_191302
+Console log: c:\Users\rasmu\OneDrive\Skrivebord\Dev\NN carTrack Java\models\runs\20260315_191302\console.log
+
+=== Episode 1 Statistics ===
+Time: 0,96s
+Cars completed: 0/14
+Average Reward: -8939,52
+Best Reward: -7556,88
+Worst Reward: -10486,19
+Epsilon: 1,0000
+Max Q: 13,36
+Loss: 47,836524
+================================
+
+
+=== Episode 2 Statistics ===
+Time: 1,18s
+Cars completed: 0/14
+Average Reward: -7820,12
+Best Reward: -5825,49
+Worst Reward: -9820,49
+Epsilon: 0,9920
+Max Q: 9,59
+Loss: 16,454512
+================================
+
+
+=== Episode 3 Statistics ===
+Time: 1,17s
+Cars completed: 0/14
+Average Reward: -7115,96
+Best Reward: -5375,37
+Worst Reward: -10143,06
+Epsilon: 0,9841
+Max Q: 49,67
+Loss: 1,739121
+================================
+
+
+=== Episode 4 Statistics ===
+Time: 1,17s
+Cars completed: 0/14
+Average Reward: -5987,07
+Best Reward: -3705,36
+Worst Reward: -7415,72
+Epsilon: 0,9762
+Max Q: 90,11
+Loss: 36,045546
+================================
+
+
+=== Episode 5 Statistics ===
+Time: 1,18s
+Cars completed: 0/14
+Average Reward: -5276,70
+Best Reward: -3328,32
+Worst Reward: -7362,03
+Epsilon: 0,9684
+Max Q: 125,65
+Loss: 22,144810
+================================
+
+
+=== Episode 6 Statistics ===
+Time: 1,17s
+Cars completed: 0/14
+Average Reward: -6710,63
+Best Reward: -3938,01
+Worst Reward: -13666,68
+Epsilon: 0,9606
+Max Q: 113,95
+Loss: 1669,972268
+================================
+
+
+=== Episode 7 Statistics ===
+Time: 1,18s
+Cars completed: 0/14
+Average Reward: -4604,34
+Best Reward: -3677,71
+Worst Reward: -7947,15
+Epsilon: 0,9529
+Max Q: 185,99
+Loss: 44,935500
+================================
+
+
+=== Episode 8 Statistics ===
+Time: 1,19s
+Cars completed: 0/14
+Average Reward: -3706,71
+Best Reward: -2178,29
+Worst Reward: -4679,74
+Epsilon: 0,9453
+Max Q: 193,72
+Loss: 24,253047
+================================
+
+
+=== Episode 9 Statistics ===
+Time: 1,17s
+Cars completed: 0/14
+Average Reward: -5251,79
+Best Reward: -2681,22
+Worst Reward: -21112,46
+Epsilon: 0,9378
+Max Q: 193,21
+Loss: 1621,383577
+================================
+
+
+=== Episode 10 Statistics ===
+Time: 1,19s
+Cars completed: 0/14
+Average Reward: -2788,87
+Best Reward: -1092,20
+Worst Reward: -3602,13
+Epsilon: 0,9303
+Max Q: 254,18
+Loss: 43,432693
+================================
+
+
+=== Episode 11 Statistics ===
+Time: 1,17s
+Cars completed: 0/14
+Average Reward: -4160,28
+Best Reward: -1592,96
+Worst Reward: -15549,75
+Epsilon: 0,9228
+Max Q: 226,42
+Loss: 129,717639
+================================
+
+
+=== Episode 12 Statistics ===
+Time: 1,19s
+Cars completed: 0/14
+Average Reward: -2266,72
+Best Reward: -371,02
+Worst Reward: -4285,26
+Epsilon: 0,9154
+Max Q: 305,73
+Loss: 41,000884
+================================
+
+
+=== Episode 13 Statistics ===
+Time: 1,17s
+Cars completed: 0/14
+Average Reward: -1391,36
+Best Reward: -671,47
+Worst Reward: -2747,08
+Epsilon: 0,9081
+Max Q: 353,09
+Loss: 50,205273
+================================
+
+
+=== Episode 14 Statistics ===
+Time: 1,17s
+Cars completed: 0/14
+Average Reward: -1939,88
+Best Reward: -814,64
+Worst Reward: -3388,50
+Epsilon: 0,9008
+Max Q: 316,84
+Loss: 33,646288
+================================
+
+
+=== Episode 15 Statistics ===
+Time: 1,17s
+Cars completed: 0/14
+Average Reward: -1654,02
+Best Reward: -664,74
+Worst Reward: -3120,10
+Epsilon: 0,8936
+Max Q: 378,58
+Loss: 89,564782
+================================
+
+
+=== Episode 16 Statistics ===
+Time: 1,17s
+Cars completed: 0/14
+Average Reward: -1359,62
+Best Reward: -677,26
+Worst Reward: -3154,75
+Epsilon: 0,8865
+Max Q: 353,37
+Loss: 39,757313
+================================
+
+
+=== Episode 17 Statistics ===
+Time: 1,18s
+Cars completed: 1/14
+Average Reward: -3929,36
+Best Reward: 1281,43
+Worst Reward: -15711,05
+Epsilon: 0,8794
+Max Q: 391,12
+Loss: 2233,136203
+================================
+
+
+=== Episode 18 Statistics ===
+Time: 1,18s
+Cars completed: 0/14
+Average Reward: -3395,35
+Best Reward: -792,86
+Worst Reward: -11072,24
+Epsilon: 0,8724
+Max Q: 351,32
+Loss: 378,573888
+================================
+
+
+=== Episode 19 Statistics ===
+Time: 1,18s
+Cars completed: 0/14
+Average Reward: -3171,46
+Best Reward: 928,85
+Worst Reward: -9798,86
+Epsilon: 0,8654
+Max Q: 280,88
+Loss: 2330,916456
+================================
+
+
+=== Episode 20 Statistics ===
+Time: 1,16s
+Cars completed: 4/14
+Average Reward: -2218,29
+Best Reward: 2820,52
+Worst Reward: -6736,13
+Epsilon: 0,8585
+Max Q: 472,18
+Loss: 330542,327332
+================================
+
+
+=== Episode 21 Statistics ===
+Time: 1,16s
+Cars completed: 2/14
+Average Reward: -3592,91
+Best Reward: 1452,29
+Worst Reward: -18735,92
+Epsilon: 0,8516
+Max Q: 486,11
+Loss: 1044,952177
+================================
+
+
+=== Episode 22 Statistics ===
+Time: 1,19s
+Cars completed: 0/14
+Average Reward: -1760,11
+Best Reward: 2776,69
+Worst Reward: -8466,74
+Epsilon: 0,8448
+Max Q: 394,90
+Loss: 54,524682
+================================
+
+
+=== Episode 23 Statistics ===
+Time: 1,04s
+Cars completed: 14/14
+Average Reward: 7210,37
+Best Reward: 10472,14
+Worst Reward: 612,62
+Epsilon: 0,8380
+Max Q: 681,67
+Loss: 590191,216633
+================================
+
+
+=== Episode 24 Statistics ===
+Time: 1,13s
+Cars completed: 7/14
+Average Reward: 2354,92
+Best Reward: 8883,52
+Worst Reward: -7058,14
+Epsilon: 0,8313
+Max Q: 793,41
+Loss: 433,268549
+================================
+
+Stop requested. Finalizing current run...
+
+=== Episode 25 Statistics ===
+Time: 0,78s
+Cars completed: 0/14
+Average Reward: -703,61
+Best Reward: 1662,28
+Worst Reward: -2267,55
+Epsilon: 0,8247
+Max Q: 802,34
+Loss: 282,336699
+================================
+
+Final model file: models\runs\20260315_191302\best-model-20260315_191302-ep25-t29s.nn

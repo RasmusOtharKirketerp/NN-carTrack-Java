@@ -380,6 +380,8 @@ public class LiveNNStatusWindow extends JFrame {
               perBetaInc=%.6f
 
             Simulation
+              track=%s
+              trackFile=%s
               cars=%d
               episodes=%d
               stepsPerEpisode=%d
@@ -405,6 +407,8 @@ public class LiveNNStatusWindow extends JFrame {
             Config.PER_ALPHA,
             Config.PER_BETA_START,
             Config.PER_BETA_INCREMENT,
+            Config.TRACK_NAME,
+            Config.TRACK_FILE_PATH,
             Config.numberOfCars(),
             Config.NUMBER_OF_EPISODES,
             Config.dynamicStepsPerEpisode(),
