@@ -4,6 +4,11 @@ import javax.swing.*;
 import java.awt.*;
 import java.util.ArrayList;
 import java.awt.geom.Point2D;
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.StandardCopyOption;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.Comparator;
 import java.util.Collections;
 import java.util.List;
@@ -22,6 +27,8 @@ public class Simulation extends JPanel {  // Remove Scrollable interface
     private final List<RunSnapshot> topRunSnapshots = new ArrayList<>();
     private int nextSnapshotId = 1;
     private double bestModelReward = Double.NEGATIVE_INFINITY;
+    private final AtomicBoolean stopRequested = new AtomicBoolean(false);
+    private final AtomicBoolean modelFinalized = new AtomicBoolean(false);
 
     public Simulation() {
         setDoubleBuffered(true);  // Add double buffering
@@ -48,6 +55,9 @@ public class Simulation extends JPanel {  // Remove Scrollable interface
     }
 
     public void runEpisode() {
+        if (stopRequested.get()) {
+            return;
+        }
         episode++;
         logger.setCurrentEpisode(episode);
         carsFinished = 0;
@@ -62,12 +72,14 @@ public class Simulation extends JPanel {  // Remove Scrollable interface
         
         double episodeStartTime = System.currentTimeMillis();
         
-        for (int t = 0; t < episodeStepBudget && carsTerminated < cars.size(); t++) {
+        for (int t = 0; t < episodeStepBudget && carsTerminated < cars.size() && !stopRequested.get(); t++) {
             if (!Config.isHeadlessLogsOnly()) {
+                double episodeElapsedSeconds = (System.currentTimeMillis() - episodeStartTime) / 1000.0;
                 progressBar.setValue(t);
                 progressBar.setString(String.format("Steps: %d/%d (%.2f%%)", t, episodeStepBudget, (t / (double) episodeStepBudget) * 100));
                 if (nnStatusWindow != null) {
-                    nnStatusWindow.updateStatus(episode, t, carsFinished, cars.size(), currentLeader());
+                    nnStatusWindow.updateStatus(
+                        episode, t, episodeElapsedSeconds, carsFinished, cars.size(), currentLeader());
                 }
             }
             for (int i = 0; i < cars.size(); i++) {
@@ -87,7 +99,19 @@ public class Simulation extends JPanel {  // Remove Scrollable interface
             if (!Config.isHeadlessLogsOnly() && t % Config.RENDER_EVERY_N_STEPS == 0) {
                 repaint();
             }
+            int sleepMs = Config.simulationSleepMs();
+            if (sleepMs > 0) {
+                try {
+                    Thread.sleep(sleepMs);
+                } catch (InterruptedException e) {
+                    Thread.currentThread().interrupt();
+                    requestStop();
+                    break;
+                }
+            }
         }
+
+        double episodeDurationSeconds = (System.currentTimeMillis() - episodeStartTime) / 1000.0;
 
         // Calculate and display episode statistics
         double totalReward = 0;
@@ -115,7 +139,7 @@ public class Simulation extends JPanel {  // Remove Scrollable interface
         // Calculate episode statistics and log them
         logger.logEpisodeStats(
             episode,
-            (System.currentTimeMillis() - episodeStartTime) / 1000.0,
+            episodeDurationSeconds,
             carsFinished,
             cars.size(),
             averageReward,
@@ -133,10 +157,20 @@ public class Simulation extends JPanel {  // Remove Scrollable interface
                 cars.get(0).getBrain().getEpsilon(),
                 cars.get(0).getBrain().getMaxQValue(),
                 cars.get(0).getBrain().getCurrentLoss(),
-                avgRecentScore
+                avgRecentScore,
+                carsFinished,
+                cars.size(),
+                episodeDurationSeconds
             );
             if (nnStatusWindow != null) {
-                nnStatusWindow.updateStatus(episode, episodeStepBudget, carsFinished, cars.size(), currentLeader());
+                nnStatusWindow.updateStatus(
+                    episode,
+                    episodeStepBudget,
+                    episodeDurationSeconds,
+                    carsFinished,
+                    cars.size(),
+                    currentLeader()
+                );
             }
         }
 
@@ -174,6 +208,12 @@ public class Simulation extends JPanel {  // Remove Scrollable interface
         // Reset all cars to same starting position
         for (int i = 0; i < cars.size(); i++) {
             cars.get(i).reset(Config.STARTING_X, startYForCar(i));
+        }
+    }
+
+    public void requestStop() {
+        if (stopRequested.compareAndSet(false, true)) {
+            System.out.println("Stop requested. Finalizing current run...");
         }
     }
 
@@ -481,25 +521,88 @@ public class Simulation extends JPanel {  // Remove Scrollable interface
             }
         }
 
+        long runStartNanos = System.nanoTime();
         Simulation sim = new Simulation();
+        Runtime.getRuntime().addShutdownHook(new Thread(() ->
+            sim.finalizeModelOutput((System.nanoTime() - runStartNanos) / 1_000_000_000.0)
+        ));
         if (Config.isHeadlessLogsOnly()) {
-            for (int i = 0; i < Config.NUMBER_OF_EPISODES; i++) {
+            for (int i = 0; i < Config.NUMBER_OF_EPISODES && !sim.stopRequested.get(); i++) {
                 sim.runEpisode();
             }
+            sim.finalizeModelOutput((System.nanoTime() - runStartNanos) / 1_000_000_000.0);
             return;
         }
 
         JFrame frame = new JFrame("Car Racing Simulation with Neural Networks");
         frame.add(sim);  // Direct add, no scroll pane
         frame.setSize(Config.WINDOW_WIDTH, Config.WINDOW_HEIGHT);
-        frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
+        frame.setDefaultCloseOperation(JFrame.DISPOSE_ON_CLOSE);
+        frame.addWindowListener(new java.awt.event.WindowAdapter() {
+            @Override
+            public void windowClosing(java.awt.event.WindowEvent e) {
+                sim.requestStop();
+                sim.finalizeModelOutput((System.nanoTime() - runStartNanos) / 1_000_000_000.0);
+                frame.dispose();
+                System.exit(0);
+            }
+        });
+        JRootPane rootPane = frame.getRootPane();
+        rootPane.getInputMap(JComponent.WHEN_IN_FOCUSED_WINDOW).put(
+            KeyStroke.getKeyStroke("ESCAPE"), "stopAndExit");
+        rootPane.getInputMap(JComponent.WHEN_IN_FOCUSED_WINDOW).put(
+            KeyStroke.getKeyStroke('Q'), "stopAndExit");
+        rootPane.getInputMap(JComponent.WHEN_IN_FOCUSED_WINDOW).put(
+            KeyStroke.getKeyStroke('X'), "stopAndExit");
+        rootPane.getActionMap().put("stopAndExit", new AbstractAction() {
+            @Override
+            public void actionPerformed(java.awt.event.ActionEvent e) {
+                sim.requestStop();
+                sim.finalizeModelOutput((System.nanoTime() - runStartNanos) / 1_000_000_000.0);
+                frame.dispose();
+                System.exit(0);
+            }
+        });
         frame.setVisible(true);
 
         // Run multiple episodes using config value
         new Thread(() -> {
-            for (int i = 0; i < Config.NUMBER_OF_EPISODES; i++) {
+            for (int i = 0; i < Config.NUMBER_OF_EPISODES && !sim.stopRequested.get(); i++) {
                 sim.runEpisode();
             }
+            sim.finalizeModelOutput((System.nanoTime() - runStartNanos) / 1_000_000_000.0);
+            if (sim.stopRequested.get()) {
+                SwingUtilities.invokeLater(frame::dispose);
+            }
         }).start();
+    }
+
+    private void finalizeModelOutput(double totalRuntimeSeconds) {
+        if (!modelFinalized.compareAndSet(false, true)) {
+            return;
+        }
+        if (Config.isInferenceOnly()) {
+            return;
+        }
+        Path source = Path.of(Config.MODEL_SAVE_FILE_PATH);
+        if (!Files.exists(source)) {
+            return;
+        }
+
+        Path target = Path.of(Config.completedModelFilePath(episode, totalRuntimeSeconds));
+        if (source.equals(target)) {
+            return;
+        }
+
+        try {
+            Path parent = target.getParent();
+            if (parent != null) {
+                Files.createDirectories(parent);
+            }
+            Files.move(source, target, StandardCopyOption.REPLACE_EXISTING);
+            System.out.println("Final model file: " + target);
+        } catch (IOException e) {
+            System.err.println("Failed to finalize model output name: " + e.getMessage());
+        }
     }
 }

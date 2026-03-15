@@ -75,6 +75,8 @@ public class Car {
     };
     private final double[] sensorDistances = new double[Config.SENSOR_RAY_COUNT];
     private double[] lastQValues = new double[Config.OUTPUT_SIZE];
+    private final double[] stateBuffer = new double[Config.INPUT_SIZE];
+    private final double[] nextStateBuffer = new double[Config.INPUT_SIZE];
     private int stepsSinceProgressCheck = 0;
     private double progressWindowStartX = 0.0;
     private double maxXReached = 0.0;
@@ -112,11 +114,11 @@ public class Car {
         }
 
         // Normalize inputs
-        double[] inputs = buildStateVector();
+        double[] inputs = buildStateVector(stateBuffer);
         
-        // Use selectAction to get the actual action taken
-        int action = brain.selectAction(inputs);
-        lastQValues = brain.forward(inputs);
+        NeuralNetwork.ActionSelection actionSelection = brain.selectActionWithQValues(inputs);
+        int action = actionSelection.getAction();
+        lastQValues = actionSelection.getQValues();
 
         // Adjust speed based on repeated actions
         if (action == lastAction) {
@@ -159,7 +161,7 @@ public class Car {
             recordRewardEvent(REWARD_EVT_BOUNDARY_HIT, penalty);
             totalReward += penalty;
             recordStepReward();
-            double[] nextState = buildStateVector();
+            double[] nextState = buildStateVector(nextStateBuffer);
             brain.trainWithReward(inputs, penalty, nextState, false);
             return;
         }
@@ -173,7 +175,7 @@ public class Car {
             recordRewardEvent(REWARD_EVT_OBSTACLE_HIT, penalty);
             totalReward += penalty;
             recordStepReward();
-            double[] nextState = buildStateVector();
+            double[] nextState = buildStateVector(nextStateBuffer);
             brain.trainWithReward(inputs, penalty, nextState, false);
             return;
         }
@@ -184,7 +186,7 @@ public class Car {
         recordStepReward();
 
         // Prepare nextState and done flag
-        double[] nextState = buildStateVector();
+        double[] nextState = buildStateVector(nextStateBuffer);
         boolean done = isOutOfBoundsState || hasFinished;
         
         // Add experience every step; train at a lower frequency for speed.
@@ -252,6 +254,11 @@ public class Car {
             if (netProgress < Config.STUCK_PROGRESS_THRESHOLD) {
                 reward += Config.STUCK_WINDOW_PENALTY;
                 recordRewardEvent(REWARD_EVT_STUCK, Config.STUCK_WINDOW_PENALTY);
+                if (Config.isInferenceOnly()) {
+                    // In viewer/play mode, end the attempt once the policy is clearly stuck.
+                    isOutOfBoundsState = true;
+                    speed = 0.0;
+                }
             }
             progressWindowStartX = x;
             stepsSinceProgressCheck = 0;
@@ -452,8 +459,7 @@ public class Car {
         return false;
     }
 
-    private double[] buildStateVector() {
-        double[] state = new double[Config.INPUT_SIZE];
+    private double[] buildStateVector(double[] state) {
         for (int i = 0; i < Config.SENSOR_RAY_COUNT; i++) {
             double rayRange = Config.SENSOR_RANGE * SENSOR_RANGE_SCALE[i];
             double dist = castRayDistance(SENSOR_DIRECTIONS[i][0], SENSOR_DIRECTIONS[i][1], rayRange);

@@ -59,7 +59,7 @@ This repository contains a reinforcement-learning car simulation written in Java
 
 Requirements:
 
-- Java 21
+- Java 21 or newer
 - Maven (or Maven Wrapper if `mvnw.cmd` is present)
 
 Windows launch:
@@ -71,6 +71,12 @@ run.bat headless
 run.bat play
 run.bat playlogs
 ```
+
+`run.bat` requires Java 21+ and will:
+- prefer `JAVA_HOME_25` if set
+- otherwise prefer `JAVA_HOME_21` if set
+- otherwise use `JAVA_HOME` when it points to JDK 21+
+- stop early with a clear error if an older Java is active
 
 Notes:
 

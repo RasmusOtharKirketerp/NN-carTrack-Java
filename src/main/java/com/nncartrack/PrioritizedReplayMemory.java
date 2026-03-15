@@ -1,6 +1,7 @@
 package com.nncartrack;
 
 import java.util.*;
+import java.util.concurrent.ThreadLocalRandom;
 
 public class PrioritizedReplayMemory {
     private static PrioritizedReplayMemory instance = new PrioritizedReplayMemory();
@@ -12,6 +13,7 @@ public class PrioritizedReplayMemory {
     private double beta;
     private double betaIncrement;
     private List<Integer> sampledIndices = new ArrayList<>();  // To store sampled indices
+    private double sumPriorities;
 
     private PrioritizedReplayMemory() {
         this.capacity = com.nncartrack.Config.MEMORY_SIZE;
@@ -19,8 +21,9 @@ public class PrioritizedReplayMemory {
         this.epsilon = com.nncartrack.Config.PER_EPSILON;
         this.beta = com.nncartrack.Config.PER_BETA_START;
         this.betaIncrement = com.nncartrack.Config.PER_BETA_INCREMENT;
-        this.experiences = new ArrayList<>();
-        this.priorities = new ArrayList<>();
+        this.experiences = new ArrayList<>(capacity);
+        this.priorities = new ArrayList<>(capacity);
+        this.sumPriorities = 0.0;
     }
 
     public static PrioritizedReplayMemory getInstance() {
@@ -29,44 +32,42 @@ public class PrioritizedReplayMemory {
 
     public synchronized void add(Experience experience, double priority) {
         if (experiences.size() >= capacity) {
+            sumPriorities -= priorities.get(0);
             experiences.remove(0);
             priorities.remove(0);
         }
         experiences.add(experience);
-        priorities.add(Math.pow(priority + epsilon, alpha));
+        double adjustedPriority = Math.pow(priority + epsilon, alpha);
+        priorities.add(adjustedPriority);
+        sumPriorities += adjustedPriority;
     }
 
     public synchronized List<Experience> sample(int batchSize) {
         sampledIndices.clear();
-        List<Experience> batch = new ArrayList<>();
+        List<Experience> batch = new ArrayList<>(batchSize);
         if (experiences.isEmpty()) {
             return batch;
         }
         
-        // Calculate sampling probabilities
-        double total = priorities.stream().mapToDouble(Double::doubleValue).sum();
+        double total = sumPriorities;
         if (total <= 0.0) {
-            // Fallback to uniform probabilities in degenerate cases.
             total = priorities.size();
             for (int i = 0; i < priorities.size(); i++) {
                 priorities.set(i, 1.0);
             }
-        }
-        final double normalizationTotal = total;
-        double[] probabilities = priorities.stream()
-            .mapToDouble(p -> p / normalizationTotal)
-            .toArray();
-        
-        // Create cumulative sum for sampling
-        double[] cumulativeSum = new double[probabilities.length];
-        cumulativeSum[0] = probabilities[0];
-        for (int i = 1; i < probabilities.length; i++) {
-            cumulativeSum[i] = cumulativeSum[i-1] + probabilities[i];
+            sumPriorities = total;
         }
 
-        // Sample experiences
+        double[] cumulativeSum = new double[priorities.size()];
+        double running = 0.0;
+        for (int i = 0; i < priorities.size(); i++) {
+            running += priorities.get(i) / total;
+            cumulativeSum[i] = running;
+        }
+        cumulativeSum[cumulativeSum.length - 1] = 1.0;
+
         for (int i = 0; i < batchSize; i++) {
-            double randVal = Math.random();
+            double randVal = ThreadLocalRandom.current().nextDouble();
             int index = Arrays.binarySearch(cumulativeSum, randVal);
             if (index < 0) {
                 index = -index - 1;
@@ -101,6 +102,7 @@ public class PrioritizedReplayMemory {
         for (int i = 0; i < indices.size(); i++) {
             int idx = indices.get(i);
             double priority = Math.pow(newPriorities.get(i) + epsilon, alpha);
+            sumPriorities += priority - priorities.get(idx);
             priorities.set(idx, priority);
         }
     }
@@ -114,7 +116,7 @@ public class PrioritizedReplayMemory {
     }
     
     public synchronized double getSumPriorities() {
-        return priorities.stream().mapToDouble(Double::doubleValue).sum();
+        return sumPriorities;
     }
 
     // Experience inner class

@@ -1,8 +1,19 @@
 package com.nncartrack;
 
+import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
+import java.util.Locale;
+
 public class Config {
+    private static final DateTimeFormatter RUN_TS_FORMAT = DateTimeFormatter.ofPattern("yyyyMMdd_HHmmss");
+    public static final String RUN_TIMESTAMP =
+        System.getProperty("nn.run.ts", LocalDateTime.now().format(RUN_TS_FORMAT));
+
     public static boolean isInferenceOnly() {
         return "play".equalsIgnoreCase(System.getProperty("nn.mode", ""));
+    }
+    public static boolean shouldResumeTraining() {
+        return Boolean.parseBoolean(System.getProperty("nn.resume.training", "false"));
     }
     public static boolean isFileLoggingEnabled() {
         return Boolean.parseBoolean(System.getProperty("nn.filelogs", "true"));
@@ -11,11 +22,31 @@ public class Config {
         return Boolean.parseBoolean(System.getProperty("nn.headless", "false"))
             || Boolean.parseBoolean(System.getProperty("java.awt.headless", "false"));
     }
-    public static final String DEFAULT_MODEL_FILE_PATH = "models/best-model.nn";
+    public static int playModeCarCount() {
+        return Integer.parseInt(System.getProperty("nn.play.cars", Integer.toString(PLAY_MODE_NUMBER_OF_CARS)));
+    }
+    public static int simulationSleepMs() {
+        return Integer.parseInt(System.getProperty("nn.simulation.sleep.ms", Integer.toString(SIMULATION_SLEEP_MS)));
+    }
+    public static final String RUN_MODEL_DIR = "models/runs/" + RUN_TIMESTAMP;
+    public static final String DEFAULT_MODEL_LOAD_FILE_PATH = "models/best-model.nn";
+    public static final String DEFAULT_MODEL_SAVE_FILE_PATH = RUN_MODEL_DIR + "/best-model-current.nn";
     public static final String MODEL_LOAD_FILE_PATH =
-        System.getProperty("nn.model.load.path", DEFAULT_MODEL_FILE_PATH);
+        System.getProperty("nn.model.load.path", DEFAULT_MODEL_LOAD_FILE_PATH);
     public static final String MODEL_SAVE_FILE_PATH =
-        System.getProperty("nn.model.save.path", DEFAULT_MODEL_FILE_PATH);
+        System.getProperty("nn.model.save.path", DEFAULT_MODEL_SAVE_FILE_PATH);
+
+    public static String completedModelFilePath(int episodesRan, double totalRuntimeSeconds) {
+        int roundedSeconds = (int) Math.round(totalRuntimeSeconds);
+        return String.format(
+            Locale.US,
+            "%s/best-model-%s-ep%d-t%ds.nn",
+            RUN_MODEL_DIR,
+            RUN_TIMESTAMP,
+            episodesRan,
+            roundedSeconds
+        );
+    }
     // Track parameters
     public static final double TRACK_MARGIN = 80.0;  // Margin around track
     public static final int TRACK_WIDTH = 3200;      // Track size (scaled x2)
@@ -32,7 +63,7 @@ public class Config {
     public static final double FINISH_LINE_X = DRIVABLE_MAX_X - 20.0;
 
     public static final int NUMBER_OF_CARS = 14;  // Can increase since they overlap
-    public static final int PLAY_MODE_NUMBER_OF_CARS = 200;
+    public static final int PLAY_MODE_NUMBER_OF_CARS = 1;
     public static final int NUMBER_OF_EPISODES = 150;  // Increased for better learning
 
     // Rewards
@@ -127,7 +158,7 @@ public class Config {
     }
 
     public static int numberOfCars() {
-        return isInferenceOnly() ? PLAY_MODE_NUMBER_OF_CARS : NUMBER_OF_CARS;
+        return isInferenceOnly() ? playModeCarCount() : NUMBER_OF_CARS;
     }
 
     public static int obstacleX(int index) {

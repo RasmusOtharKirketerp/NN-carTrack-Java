@@ -23,6 +23,8 @@ public class LiveDataWindow extends JFrame {
     private XYSeries lossSeries;
     private XYSeries qMaxSeries;
     private XYSeries epsilonSeries;
+    private XYSeries carsFinishedSeries;
+    private XYSeries episodeTimeSeries;
     private static final int MAX_DATA_POINTS = Config.MAX_DATA_POINTS;
     private final Queue<DataUpdate> updateQueue;
     private final Timer updateTimer;
@@ -37,13 +39,20 @@ public class LiveDataWindow extends JFrame {
         final double qMax;
         final double loss;
         final double avgScore;
+        final int carsFinished;
+        final int carsTotal;
+        final double episodeTimeSeconds;
 
-        DataUpdate(int episode, double epsilon, double qMax, double loss, double avgScore) {
+        DataUpdate(int episode, double epsilon, double qMax, double loss, double avgScore,
+                   int carsFinished, int carsTotal, double episodeTimeSeconds) {
             this.episode = episode;
             this.epsilon = epsilon;
             this.qMax = qMax;
             this.loss = loss;
             this.avgScore = avgScore;
+            this.carsFinished = carsFinished;
+            this.carsTotal = carsTotal;
+            this.episodeTimeSeconds = episodeTimeSeconds;
         }
     }
     
@@ -58,6 +67,8 @@ public class LiveDataWindow extends JFrame {
         lossSeries = new XYSeries("Loss");
         qMaxSeries = new XYSeries("Q-Max");
         epsilonSeries = new XYSeries("Epsilon");
+        carsFinishedSeries = new XYSeries("Cars Finished");
+        episodeTimeSeries = new XYSeries("Episode Time (s)");
         
         // Create separate datasets for different value ranges
         XYSeriesCollection dataset1 = new XYSeriesCollection();
@@ -67,6 +78,10 @@ public class LiveDataWindow extends JFrame {
         
         XYSeriesCollection dataset2 = new XYSeriesCollection();
         dataset2.addSeries(epsilonSeries);
+        
+        XYSeriesCollection dataset3 = new XYSeriesCollection();
+        dataset3.addSeries(carsFinishedSeries);
+        dataset3.addSeries(episodeTimeSeries);
         
         // Create chart with primary dataset
         JFreeChart chart = ChartFactory.createXYLineChart(
@@ -88,7 +103,11 @@ public class LiveDataWindow extends JFrame {
         plot.setRangeAxis(1, axis2);
         plot.setDataset(1, dataset2);
         plot.mapDatasetToRangeAxis(1, 1);
-        styleChart(chart, plot, axis2);
+        NumberAxis axis3 = new NumberAxis("Run Metrics");
+        plot.setRangeAxis(2, axis3);
+        plot.setDataset(2, dataset3);
+        plot.mapDatasetToRangeAxis(2, 2);
+        styleChart(chart, plot, axis2, axis3);
         
         // Create and customize renderers
         XYLineAndShapeRenderer renderer1 = new XYLineAndShapeRenderer();
@@ -104,9 +123,17 @@ public class LiveDataWindow extends JFrame {
         renderer2.setDefaultShapesVisible(false);
         renderer2.setSeriesPaint(0, new Color(255, 196, 0));   // Epsilon
         renderer2.setSeriesStroke(0, new BasicStroke(1.8f));
+
+        XYLineAndShapeRenderer renderer3 = new XYLineAndShapeRenderer();
+        renderer3.setDefaultShapesVisible(false);
+        renderer3.setSeriesPaint(0, new Color(255, 255, 255)); // Cars finished
+        renderer3.setSeriesPaint(1, new Color(180, 132, 255)); // Episode time
+        renderer3.setSeriesStroke(0, new BasicStroke(1.8f));
+        renderer3.setSeriesStroke(1, new BasicStroke(1.8f));
         
         plot.setRenderer(0, renderer1);
         plot.setRenderer(1, renderer2);
+        plot.setRenderer(2, renderer3);
         
         // Add chart to window
         ChartPanel chartPanel = new ChartPanel(chart);
@@ -148,7 +175,13 @@ public class LiveDataWindow extends JFrame {
     private void processUpdates() {
         DataUpdate update;
         while ((update = updateQueue.poll()) != null) {
-            episodeLabel.setText(String.format("EPISODE %d  |  MODE: TRAINING", update.episode));
+            episodeLabel.setText(String.format(
+                "EPISODE %d  |  MODE: TRAINING  |  FINISHED: %d/%d  |  TIME: %.3fs",
+                update.episode,
+                update.carsFinished,
+                update.carsTotal,
+                update.episodeTimeSeconds
+            ));
             history.add(update);
             if (history.size() > MAX_DATA_POINTS) {
                 history.remove(0);
@@ -164,17 +197,23 @@ public class LiveDataWindow extends JFrame {
             lossSeries.clear();
             qMaxSeries.clear();
             epsilonSeries.clear();
+            carsFinishedSeries.clear();
+            episodeTimeSeries.clear();
             for (DataUpdate h : history) {
                 rewardSeries.add(h.episode, displayValue(h.avgScore));
                 lossSeries.add(h.episode, displayValue(h.loss));
                 qMaxSeries.add(h.episode, displayValue(h.qMax));
                 epsilonSeries.add(h.episode, h.epsilon);
+                carsFinishedSeries.add(h.episode, h.carsFinished);
+                episodeTimeSeries.add(h.episode, h.episodeTimeSeconds);
             }
         }
     }
     
-    public void updateData(int episode, double epsilon, double qMax, double loss, double avgScore) {
-        updateQueue.offer(new DataUpdate(episode, epsilon, qMax, loss, avgScore));
+    public void updateData(int episode, double epsilon, double qMax, double loss, double avgScore,
+                           int carsFinished, int carsTotal, double episodeTimeSeconds) {
+        updateQueue.offer(new DataUpdate(
+            episode, epsilon, qMax, loss, avgScore, carsFinished, carsTotal, episodeTimeSeconds));
     }
 
     private boolean shouldUseSymlog(List<DataUpdate> updates) {
@@ -196,7 +235,7 @@ public class LiveDataWindow extends JFrame {
         return sign * Math.log10(1.0 + Math.abs(raw));
     }
 
-    private void styleChart(JFreeChart chart, XYPlot plot, NumberAxis axis2) {
+    private void styleChart(JFreeChart chart, XYPlot plot, NumberAxis axis2, NumberAxis axis3) {
         chart.setBackgroundPaint(new Color(8, 12, 24));
         chart.getTitle().setPaint(new Color(224, 244, 255));
         chart.getTitle().setFont(new Font("Monospaced", Font.BOLD, 22));
@@ -219,5 +258,8 @@ public class LiveDataWindow extends JFrame {
         axis2.setLabelPaint(new Color(173, 220, 255));
         axis2.setTickLabelPaint(new Color(176, 195, 222));
         axis2.setAxisLinePaint(new Color(98, 245, 255));
+        axis3.setLabelPaint(new Color(173, 220, 255));
+        axis3.setTickLabelPaint(new Color(176, 195, 222));
+        axis3.setAxisLinePaint(new Color(98, 245, 255));
     }
 }

@@ -20,11 +20,14 @@ public class LiveNNStatusWindow extends JFrame {
     private static class NNStatusSnapshot {
         final int episode;
         final int step;
+        final double episodeElapsedSeconds;
         final int carsFinished;
         final int carsTotal;
         final int replaySize;
         final double replayBeta;
         final double replayFillRatio;
+        final boolean modelLoaded;
+        final String modelLoadPath;
         final double epsilon;
         final double loss;
         final double maxQ;
@@ -45,11 +48,14 @@ public class LiveNNStatusWindow extends JFrame {
         NNStatusSnapshot(
             int episode,
             int step,
+            double episodeElapsedSeconds,
             int carsFinished,
             int carsTotal,
             int replaySize,
             double replayBeta,
             double replayFillRatio,
+            boolean modelLoaded,
+            String modelLoadPath,
             double epsilon,
             double loss,
             double maxQ,
@@ -69,11 +75,14 @@ public class LiveNNStatusWindow extends JFrame {
         ) {
             this.episode = episode;
             this.step = step;
+            this.episodeElapsedSeconds = episodeElapsedSeconds;
             this.carsFinished = carsFinished;
             this.carsTotal = carsTotal;
             this.replaySize = replaySize;
             this.replayBeta = replayBeta;
             this.replayFillRatio = replayFillRatio;
+            this.modelLoaded = modelLoaded;
+            this.modelLoadPath = modelLoadPath;
             this.epsilon = epsilon;
             this.loss = loss;
             this.maxQ = maxQ;
@@ -257,6 +266,7 @@ public class LiveNNStatusWindow extends JFrame {
     public void updateStatus(
         int episode,
         int step,
+        double episodeElapsedSeconds,
         int carsFinished,
         int carsTotal,
         Car focusCar
@@ -269,11 +279,14 @@ public class LiveNNStatusWindow extends JFrame {
         updateQueue.offer(new NNStatusSnapshot(
             episode,
             step,
+            episodeElapsedSeconds,
             carsFinished,
             carsTotal,
             memory.size(),
             memory.getBeta(),
             memory.size() / (double) Config.MEMORY_SIZE,
+            brain.isModelLoaded(),
+            brain.getModelLoadPath(),
             brain.getEpsilon(),
             brain.getCurrentLoss(),
             brain.getMaxQValue(),
@@ -408,6 +421,7 @@ public class LiveNNStatusWindow extends JFrame {
             Episode
               episode=%d
               step=%d / %d
+              elapsed=%.3fs
               carsFinished=%d / %d
 
             Replay Memory
@@ -415,11 +429,13 @@ public class LiveNNStatusWindow extends JFrame {
               fill=%.1f%%
               beta=%.4f
               trainBatches=%d
+              modelLoaded=%s
 
             NN Runtime
               epsilon=%.5f
               currentLoss=%.6f
               maxQ=%.6f
+              modelPath=%s
 
             Focus Car
               carIndex=%d
@@ -431,6 +447,7 @@ public class LiveNNStatusWindow extends JFrame {
             s.episode,
             s.step,
             Config.dynamicStepsPerEpisode(),
+            s.episodeElapsedSeconds,
             s.carsFinished,
             s.carsTotal,
             s.replaySize,
@@ -438,9 +455,11 @@ public class LiveNNStatusWindow extends JFrame {
             s.replayFillRatio * 100.0,
             s.replayBeta,
             s.trainBatchCounter,
+            s.modelLoaded,
             s.epsilon,
             s.loss,
             s.maxQ,
+            s.modelLoadPath,
             s.carIndex,
             s.carX,
             s.carY,

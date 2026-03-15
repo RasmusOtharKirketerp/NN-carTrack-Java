@@ -11,6 +11,24 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 
 public class NeuralNetwork {
+    public static final class ActionSelection {
+        private final int action;
+        private final double[] qValues;
+
+        private ActionSelection(int action, double[] qValues) {
+            this.action = action;
+            this.qValues = qValues;
+        }
+
+        public int getAction() {
+            return action;
+        }
+
+        public double[] getQValues() {
+            return qValues;
+        }
+    }
+
     private int inputSize = Config.INPUT_SIZE;
     private int hiddenSize = Config.HIDDEN_SIZE;
     private int outputSize = Config.OUTPUT_SIZE;
@@ -29,6 +47,9 @@ public class NeuralNetwork {
     private int trainBatchCounter = 0;
     private Logger logger = Logger.getInstance();
     private final boolean inferenceOnly = Config.isInferenceOnly();
+    private final boolean resumeTraining = Config.shouldResumeTraining();
+    private final String modelLoadPath = Config.MODEL_LOAD_FILE_PATH;
+    private boolean modelLoaded = false;
     private double[] latestInputs = new double[inputSize];
     private double[] latestHiddenActivations = new double[hiddenSize];
     private double[] latestOutputs = new double[outputSize];
@@ -39,8 +60,18 @@ public class NeuralNetwork {
         memory = PrioritizedReplayMemory.getInstance();
         epsilon = inferenceOnly ? 0.0 : Config.EPSILON_START;
 
-        if (inferenceOnly && loadModel(Config.MODEL_LOAD_FILE_PATH)) {
-            // Loaded persisted weights.
+        if (inferenceOnly || resumeTraining) {
+            modelLoaded = loadModel(modelLoadPath);
+            if (modelLoaded) {
+                System.out.println("Loaded model from: " + modelLoadPath);
+            } else {
+                String message = "Model load failed: " + modelLoadPath;
+                if (inferenceOnly) {
+                    throw new IllegalStateException(message);
+                }
+                System.out.println(message + " - using random initialization");
+                initializeWeights();
+            }
         } else {
             initializeWeights();
         }
@@ -59,11 +90,15 @@ public class NeuralNetwork {
     }
     
     public int selectAction(double[] state) {
-        if (rand.nextDouble() < epsilon) {
-            return rand.nextInt(outputSize);
-        }
+        return selectActionWithQValues(state).getAction();
+    }
+
+    public ActionSelection selectActionWithQValues(double[] state) {
         double[] qValues = forward(state);
-        return maxIndex(qValues);
+        if (rand.nextDouble() < epsilon) {
+            return new ActionSelection(rand.nextInt(outputSize), qValues);
+        }
+        return new ActionSelection(maxIndex(qValues), qValues);
     }
     
     public void train() {
@@ -207,8 +242,15 @@ public class NeuralNetwork {
     // Forward propagation
     public double[] forward(double[] inputs) {
         latestInputs = Arrays.copyOf(inputs, inputs.length);
-        // Hidden layer activations
         double[] hidden = new double[hiddenSize];
+        double[] outputs = new double[outputSize];
+        forwardInto(inputs, hidden, outputs);
+        latestHiddenActivations = Arrays.copyOf(hidden, hidden.length);
+        latestOutputs = Arrays.copyOf(outputs, outputs.length);
+        return outputs;
+    }
+
+    private void forwardInto(double[] inputs, double[] hidden, double[] outputs) {
         for (int i = 0; i < hiddenSize; i++) {
             double sum = 0;
             for (int j = 0; j < inputSize; j++) {
@@ -217,8 +259,6 @@ public class NeuralNetwork {
             hidden[i] = sigmoid(sum);
         }
 
-        // Output layer activations (linear for Q-values)
-        double[] outputs = new double[outputSize];
         for (int i = 0; i < outputSize; i++) {
             double sum = 0;
             for (int j = 0; j < hiddenSize; j++) {
@@ -226,11 +266,6 @@ public class NeuralNetwork {
             }
             outputs[i] = sum;
         }
-
-        latestHiddenActivations = Arrays.copyOf(hidden, hidden.length);
-        latestOutputs = Arrays.copyOf(outputs, outputs.length);
-
-        return outputs;
     }
 
     // Activation function (Sigmoid)
@@ -245,24 +280,9 @@ public class NeuralNetwork {
 
     // Backpropagation
     private void backpropagate(double[] inputs, double[] target) {
-        // Forward pass to get activations
         double[] hidden = new double[hiddenSize];
-        for (int i = 0; i < hiddenSize; i++) {
-            double sum = 0;
-            for (int j = 0; j < inputSize; j++) {
-                sum += inputs[j] * weightsInputHidden[j][i];
-            }
-            hidden[i] = sigmoid(sum);
-        }
-
         double[] outputs = new double[outputSize];
-        for (int i = 0; i < outputSize; i++) {
-            double sum = 0;
-            for (int j = 0; j < hiddenSize; j++) {
-                sum += hidden[j] * weightsHiddenOutput[j][i];
-            }
-            outputs[i] = sum;
-        }
+        forwardInto(inputs, hidden, outputs);
 
         // Linear output layer => derivative is 1
         double[] outputGradients = new double[outputSize];
@@ -399,5 +419,13 @@ public class NeuralNetwork {
     
     public double getEpsilon() {
         return epsilon;
+    }
+
+    public boolean isModelLoaded() {
+        return modelLoaded;
+    }
+
+    public String getModelLoadPath() {
+        return modelLoadPath;
     }
 }
